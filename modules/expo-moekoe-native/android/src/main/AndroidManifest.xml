@@ -1,0 +1,17 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application>
+    <!-- 前台播放服务：锁屏/通知栏「上一曲/下一曲」播控 + 后台保活 -->
+    <service
+        android:name=".PlaybackService"
+        android:exported="false"
+        android:foregroundServiceType="mediaPlayback" />
+    <!-- 注册 MediaButtonReceiver，让 MediaStyle 通知按钮点击能转发到 MediaSessionCompat 回调 -->
+    <receiver
+        android:name="androidx.media.session.MediaButtonReceiver"
+        android:exported="true">
+      <intent-filter>
+        <action android:name="android.intent.action.MEDIA_BUTTON" />
+      </intent-filter>
+    </receiver>
+  </application>
+</manifest>

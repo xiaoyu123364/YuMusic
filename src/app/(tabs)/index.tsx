@@ -1,0 +1,480 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { startTransition, useEffect, useRef, useState } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Text, View, XStack, YStack } from 'tamagui';
+
+import { Artwork } from '@/components/ui/artwork';
+import { BannerCarousel } from '@/components/ui/banner-carousel';
+import { PlaylistCard } from '@/components/ui/playlist-card';
+import { RankCard } from '@/components/ui/rank-card';
+import { SectionHeader } from '@/components/ui/section-header';
+import { SongListItem } from '@/components/ui/song-list-item';
+import { TrackActionsSheet } from '@/components/ui/track-actions-sheet';
+import { MaxContentWidth, WideBreakpoint } from '@/constants/theme';
+import { loadHomeData, type HomeData, type HomeSong } from '@/features/home/load-home-data';
+import { playerActions, usePlayer } from '@/features/player/store';
+import type { PlayerTrack } from '@/features/player/types';
+import { useDockContentInset } from '@/hooks/use-dock-inset';
+import { usePalette } from '@/hooks/use-palette';
+import { formatApiError } from '@/lib/api-parse';
+import { MaterialLoading } from '@/components/ui/loading';
+
+type ScreenState = {
+  homeData: HomeData | null;
+  initialLoading: boolean;
+  refreshing: boolean;
+  errorMessage: string;
+};
+
+const DAILY_COLUMN_SIZE = 6;
+
+function chunkSongs<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+}
+
+function HomeSongCard({
+  song,
+  active,
+  width,
+  onPress,
+  onMore,
+}: {
+  song: HomeSong;
+  active: boolean;
+  width: number;
+  onPress: () => void;
+  onMore: () => void;
+}) {
+  const palette = usePalette();
+
+  return (
+    <YStack
+      width={width}
+      gap={8}
+      padding={8}
+      borderRadius={18}
+      backgroundColor={active ? palette.accentSoft : palette.card}
+      borderWidth={StyleSheet.hairlineWidth}
+      borderColor={active ? palette.accentBorder : palette.border}
+      transition="quickest"
+      pressStyle={{ opacity: 0.75, scale: 0.98 }}
+      onPress={onPress}>
+      <View>
+        <Artwork uri={song.coverUrl} radius={14} />
+        <XStack
+          position="absolute"
+          right={7}
+          top={7}
+          width={30}
+          height={30}
+          borderRadius={15}
+          alignItems="center"
+          justifyContent="center"
+          backgroundColor="rgba(12, 12, 18, 0.54)"
+          pressStyle={{ opacity: 0.65, scale: 0.92 }}
+          onPress={(event) => {
+            event.stopPropagation();
+            onMore();
+          }}>
+          <Ionicons name="ellipsis-horizontal" size={16} color="#FFFFFF" />
+        </XStack>
+        {active ? (
+          <XStack
+            position="absolute"
+            left={7}
+            bottom={7}
+            width={28}
+            height={28}
+            borderRadius={14}
+            alignItems="center"
+            justifyContent="center"
+            backgroundColor="rgba(12, 12, 18, 0.54)">
+            <Ionicons name="pulse" size={15} color="#FFFFFF" />
+          </XStack>
+        ) : null}
+      </View>
+      <YStack gap={3} paddingHorizontal={2}>
+        <Text
+          color={active ? palette.accent : palette.text}
+          fontSize={13.5}
+          fontWeight="700"
+          numberOfLines={1}>
+          {song.title}
+        </Text>
+        <Text color={palette.textSecondary} fontSize={12} numberOfLines={1}>
+          {song.artist || '未知歌手'}
+        </Text>
+      </YStack>
+    </YStack>
+  );
+}
+
+export default function HomeScreen() {
+  const palette = usePalette();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const dockInset = useDockContentInset();
+  const { width } = useWindowDimensions();
+  const { track } = usePlayer();
+  const requestIdRef = useRef(0);
+  const [state, setState] = useState<ScreenState>({
+    homeData: null,
+    initialLoading: true,
+    refreshing: false,
+    errorMessage: '',
+  });
+  const [actionTrack, setActionTrack] = useState<PlayerTrack | null>(null);
+
+  const contentWidth = Math.min(width, MaxContentWidth) - 32;
+  const playlistColumns = contentWidth >= WideBreakpoint ? 3 : 2;
+  const playlistCardWidth = Math.floor(
+    (contentWidth - 14 * (playlistColumns - 1)) / playlistColumns
+  );
+  const bannerWidth = Math.min(contentWidth, 560);
+  const bannerHeight = Math.round(bannerWidth * 0.44);
+  const songCardWidth = Math.min(156, Math.max(136, Math.floor(contentWidth * 0.42)));
+
+  async function refreshHome(mode: 'initial' | 'refresh' = 'initial') {
+    const requestId = ++requestIdRef.current;
+
+    startTransition(() => {
+      setState((current) => ({
+        ...current,
+        initialLoading: !current.homeData,
+        refreshing: Boolean(current.homeData),
+        errorMessage: '',
+      }));
+    });
+
+    try {
+      const homeData = await loadHomeData();
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
+      startTransition(() => {
+        setState({
+          homeData,
+          initialLoading: false,
+          refreshing: false,
+          errorMessage: '',
+        });
+      });
+    } catch (error) {
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
+      const message = formatApiError(error);
+      startTransition(() => {
+        setState((current) => ({
+          homeData: current.homeData,
+          initialLoading: false,
+          refreshing: false,
+          errorMessage: message,
+        }));
+      });
+    }
+  }
+
+  useEffect(() => {
+    void refreshHome('initial');
+  }, []);
+
+  if (!state.homeData && state.initialLoading) {
+    return (
+      <YStack flex={1} alignItems="center" justifyContent="center" gap={14} backgroundColor={palette.background}>
+        <MaterialLoading size={32} color={palette.accent} />
+        <Text color={palette.textTertiary} fontSize={13.5}>
+          正在为你准备今日推荐
+        </Text>
+      </YStack>
+    );
+  }
+
+  if (!state.homeData) {
+    return (
+      <YStack
+        flex={1}
+        alignItems="center"
+        justifyContent="center"
+        gap={18}
+        paddingHorizontal={32}
+        backgroundColor={palette.background}>
+        <Ionicons name="cloud-offline-outline" size={44} color={palette.textTertiary} />
+        <YStack alignItems="center" gap={6}>
+          <Text color={palette.text} fontSize={17} fontWeight="700">
+            内容加载失败
+          </Text>
+          <Text color={palette.textTertiary} fontSize={13} textAlign="center">
+            {state.errorMessage || '网络似乎不太顺畅，请稍后重试'}
+          </Text>
+        </YStack>
+        <XStack
+          paddingHorizontal={26}
+          height={44}
+          alignItems="center"
+          borderRadius={999}
+          backgroundColor={palette.accent}
+          transition="quickest"
+          pressStyle={{ opacity: 0.8, scale: 0.97 }}
+          onPress={() => void refreshHome('initial')}>
+          <Text color={palette.onAccent} fontSize={14.5} fontWeight="700">
+            重新加载
+          </Text>
+        </XStack>
+      </YStack>
+    );
+  }
+
+  const { homeData } = state;
+  const activeHash = track?.hash;
+  const dailyColumns = chunkSongs(homeData.dailySongs, DAILY_COLUMN_SIZE);
+
+  return (
+    <View flex={1} backgroundColor={palette.background}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={state.refreshing}
+            onRefresh={() => void refreshHome('refresh')}
+            tintColor={palette.accent}
+            colors={['#4285F4', '#EA4335', '#FBBC05', '#34A853']}
+            progressBackgroundColor={palette.card}
+            progressViewOffset={insets.top}
+          />
+        }
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingTop: insets.top + 14,
+            paddingBottom: dockInset,
+          },
+        ]}>
+        <XStack
+          alignItems="center"
+          gap={9}
+          height={46}
+          paddingHorizontal={16}
+          borderRadius={23}
+          backgroundColor={palette.card}
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor={palette.border}
+          transition="quickest"
+          pressStyle={{ opacity: 0.7, scale: 0.99 }}
+          onPress={() => router.push('/search')}>
+          <Ionicons name="search" size={17} color={palette.textTertiary} />
+          <Text flex={1} color={palette.textTertiary} fontSize={14}>
+            搜索歌曲、歌手、歌单
+          </Text>
+          <XStack
+            width={30}
+            height={30}
+            alignItems="center"
+            justifyContent="center"
+            pressStyle={{ opacity: 0.6, scale: 0.92 }}
+            onPress={() => router.push('/recognize')}>
+            <Ionicons name="mic-outline" size={19} color={palette.accent} />
+          </XStack>
+        </XStack>
+
+        {state.errorMessage ? (
+          <XStack
+            alignItems="center"
+            gap={8}
+            paddingHorizontal={14}
+            paddingVertical={10}
+            borderRadius={14}
+            backgroundColor={palette.dangerSoft}>
+            <Ionicons name="alert-circle" size={15} color={palette.danger} />
+            <Text flex={1} color={palette.danger} fontSize={12.5}>
+              部分内容刷新失败，正在展示上次内容
+            </Text>
+          </XStack>
+        ) : null}
+
+        {homeData.banners.length ? (
+          <BannerCarousel
+            banners={homeData.banners}
+            bannerWidth={bannerWidth}
+            bannerHeight={bannerHeight}
+            onPressBanner={(banner) => {
+              if (banner.playlistGid) {
+                router.push({
+                  pathname: '/playlist/[id]',
+                  params: {
+                    id: banner.playlistGid,
+                    name: banner.title,
+                    cover: banner.imageUrl ?? '',
+                  },
+                });
+                return;
+              }
+
+              if (banner.linkUrl) {
+                router.push({
+                  pathname: '/web',
+                  params: { url: banner.linkUrl, title: banner.title },
+                });
+              }
+            }}
+          />
+        ) : null}
+
+        {homeData.dailySongs.length ? (
+          <YStack gap={12}>
+            <SectionHeader
+              title="每日推荐"
+              subtitle="根据你的口味每天更新"
+              actionLabel="播放全部"
+              onAction={() => void playerActions.playTracks(homeData.dailySongs, 0)}
+            />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.dailyColumns}>
+              {dailyColumns.map((column, columnIndex) => (
+                <YStack
+                  key={`daily-column-${columnIndex}`}
+                  width={contentWidth}
+                  backgroundColor={palette.card}
+                  borderRadius={20}
+                  borderWidth={StyleSheet.hairlineWidth}
+                  borderColor={palette.border}
+                  paddingVertical={6}
+                  paddingHorizontal={4}>
+                  {column.map((song, rowIndex) => {
+                    const index = columnIndex * DAILY_COLUMN_SIZE + rowIndex;
+                    return (
+                      <SongListItem
+                        key={`${song.hash}-${index}`}
+                        track={song}
+                        active={song.hash === activeHash}
+                        onPress={() => void playerActions.playTracks(homeData.dailySongs, index)}
+                        onMore={() => setActionTrack(song)}
+                      />
+                    );
+                  })}
+                </YStack>
+              ))}
+            </ScrollView>
+          </YStack>
+        ) : null}
+
+        {homeData.playlists.length ? (
+          <YStack gap={12}>
+            <SectionHeader title="推荐歌单" subtitle="此刻大家都在收藏" />
+            <XStack flexWrap="wrap" gap={14}>
+              {homeData.playlists.map((playlist) => (
+                <PlaylistCard
+                  key={playlist.gid}
+                  title={playlist.title}
+                  coverUrl={playlist.coverUrl}
+                  playCountText={playlist.playCountText}
+                  width={playlistCardWidth}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/playlist/[id]',
+                      params: {
+                        id: playlist.gid,
+                        name: playlist.title,
+                        cover: playlist.coverUrl ?? '',
+                      },
+                    })
+                  }
+                />
+              ))}
+            </XStack>
+          </YStack>
+        ) : null}
+
+        {homeData.rankCards.length ? (
+          <YStack gap={12}>
+            <SectionHeader title="排行榜" subtitle="现在大家都在听什么" />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.rankList}>
+              {homeData.rankCards.map((card) => (
+                <RankCard
+                  key={card.id}
+                  title={card.title}
+                  coverUrl={card.coverUrl}
+                  songs={card.songs}
+                  activeHash={activeHash}
+                  onPressSong={(index) => void playerActions.playTracks(card.songs, index)}
+                  onPlayAll={() => void playerActions.playTracks(card.songs, 0)}
+                />
+              ))}
+            </ScrollView>
+          </YStack>
+        ) : null}
+
+        {homeData.newSongs.length ? (
+          <YStack gap={12}>
+            <SectionHeader
+              title="新歌速递"
+              subtitle="最新上架的好声音"
+              actionLabel="播放全部"
+              onAction={() => void playerActions.playTracks(homeData.newSongs, 0)}
+            />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.songCardList}>
+              {homeData.newSongs.map((song, index) => (
+                <HomeSongCard
+                  key={`new-${song.hash}`}
+                  song={song}
+                  active={song.hash === activeHash}
+                  width={songCardWidth}
+                  onPress={() => void playerActions.playTracks(homeData.newSongs, index)}
+                  onMore={() => setActionTrack(song)}
+                />
+              ))}
+            </ScrollView>
+          </YStack>
+        ) : null}
+      </ScrollView>
+
+      <TrackActionsSheet
+        open={Boolean(actionTrack)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setActionTrack(null);
+          }
+        }}
+        track={actionTrack}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  content: {
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    paddingHorizontal: 16,
+    gap: 22,
+  },
+  rankList: {
+    gap: 14,
+    paddingRight: 4,
+  },
+  dailyColumns: {
+    gap: 12,
+    paddingRight: 4,
+  },
+  songCardList: {
+    gap: 12,
+    paddingRight: 4,
+  },
+});

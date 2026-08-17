@@ -1,0 +1,59 @@
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+example
+
+# generated native folders
+/ios
+/android
+
+# ---- 签名与敏感信息（切勿提交） ----
+keystore.properties
+keystore/
+*.keystore
+*.jks
+
+# ---- 构建产物与日志 ----
+build-release*.log
+*.log
+modules/*/android/build/
+modules/*/android/.cxx/
+.gradle/
+
+# ---- WorkBuddy 项目数据（内部数据，勿公开）----
+.workbuddy/
