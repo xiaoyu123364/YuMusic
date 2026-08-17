@@ -29,14 +29,19 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
     )
     // 关键：背景/玻璃会随页面滚动变化，必须开启动态采样，否则只捕获一帧。
     glassView.enableDynamicBackground = true
-    glassView.useShaderPipeline = true
+    // 防御性：禁用 GPU 管线（AGSL 透镜 / RuntimeShader 硬件模糊）与传感器/自适应染色，
+    // 强制走稳定的 CPU 经典管线（C++ NEON 模糊 + 色差），避免部分设备 GPU 管线崩溃闪退。
+    glassView.useShaderPipeline = false
+    glassView.useHardwareBlurWhenPossible = false
+    glassView.enableSensorHighlight = false
+    glassView.enableAdaptiveTint = false
     glassView.material = GlassMaterial.REGULAR
     glassView.blurMethod = BlurMethod.SMART
     glassView.enableBackdropBlur = true
     glassView.enableEdgeHighlight = true
     glassView.enablePressEffect = true
     glassView.enableChromaticAberration = true
-    // 经典管线默认参数（API 24-32 生效，33+ 由透镜管线接管）
+    // 经典管线参数
     glassView.blurAmount = 0.08f
     glassView.saturation = 140f
     glassView.aberrationIntensity = 2f

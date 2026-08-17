@@ -2,7 +2,7 @@
   "expo": {
     "name": "YuMusic",
     "slug": "yumusic",
-    "version": "1.5.2",
+    "version": "1.5.3",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "yumusic",
@@ -20,7 +20,7 @@
     },
     "ios": {
       "bundleIdentifier": "cn.moekoe.music",
-      "buildNumber": "1.5.2",
+      "buildNumber": "1.5.3",
       "supportsTablet": true,
       "requireFullScreen": false,
       "infoPlist": {
@@ -34,7 +34,7 @@
     },
     "android": {
       "package": "com.yumusic.app",
-      "versionCode": 15,
+      "versionCode": 16,
       "adaptiveIcon": {
         "backgroundColor": "#F6F9FF",
         "foregroundImage": "./assets/images/android-icon-foreground.png"

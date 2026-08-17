@@ -33,8 +33,6 @@ export const LiquidGlassSurface = memo(function LiquidGlassSurface({
       saturation={150}
       aberrationIntensity={2.2}
       elasticity={0.18}
-      enableSensorHighlight
-      enableAdaptiveTint
       enableChromaticAberration
       enableEdgeHighlight
       backdropTargetId={backdropTargetId}
