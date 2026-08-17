@@ -166,5 +166,5 @@ eas build --profile production --platform android
 
 ## 🧋 请我喝一杯奶茶
 
-<img width="300" height="500" alt="eebb302e3fc272b7f8f43c63dbe2f2cf" src="https://github.com/user-attachments/assets/2c56fcbf-4e52-4597-8dc5-6090855d8df1" />  <img width="300" height="500" alt="image" src="https://github.com/user-attachments/assets/bd57b876-d210-4ede-99e1-31811ee7dfbc" />
+<img width="350" height="500" alt="eebb302e3fc272b7f8f43c63dbe2f2cf" src="https://github.com/user-attachments/assets/2c56fcbf-4e52-4597-8dc5-6090855d8df1" />  <img width="350" height="500" alt="image" src="https://github.com/user-attachments/assets/bd57b876-d210-4ede-99e1-31811ee7dfbc" />
 
