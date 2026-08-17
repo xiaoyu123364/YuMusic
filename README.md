@@ -163,9 +163,7 @@ eas build --profile production --platform android
 
 本项目基于 [GPL-2.0 License](LICENSE) 开源。
 
-##🧋 请我喝一杯奶茶
+## 🧋 请我喝一杯奶茶
 
-<img width="1118" height="1524" alt="eebb302e3fc272b7f8f43c63dbe2f2cf" src="https://github.com/user-attachments/assets/2c56fcbf-4e52-4597-8dc5-6090855d8df1" />
-
-<img width="1149" height="1490" alt="image" src="https://github.com/user-attachments/assets/bd57b876-d210-4ede-99e1-31811ee7dfbc" />
+<img width="1118" height="1524" alt="eebb302e3fc272b7f8f43c63dbe2f2cf" src="https://github.com/user-attachments/assets/2c56fcbf-4e52-4597-8dc5-6090855d8df1" />  <img width="1149" height="1490" alt="image" src="https://github.com/user-attachments/assets/bd57b876-d210-4ede-99e1-31811ee7dfbc" />
 
