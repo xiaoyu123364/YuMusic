@@ -59,21 +59,6 @@
 - [x] 平板与横屏适配
 - [ ] 性能优化
 
-## 📸 预览
-
-<table>
-  <tr>
-    <td><img src="./images/screen-1.png" alt="Screenshot 1" width="320" /></td>
-    <td><img src="./images/screen-2.png" alt="Screenshot 2" width="320" /></td>
-    <td><img src="./images/screen-3.png" alt="Screenshot 3" width="320" /></td>
-  </tr>
-  <tr>
-    <td><img src="./images/screen-4.png" alt="Screenshot 4" width="320" /></td>
-    <td><img src="./images/screen-5.png" alt="Screenshot 5" width="320" /></td>
-    <td><img src="./images/screen-6.png" alt="Screenshot 6" width="320" /></td>
-  </tr>
-</table>
-
 ## 🚀 快速开始
 
 ### 环境要求
