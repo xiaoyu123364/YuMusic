@@ -172,7 +172,7 @@ export default function TabsLayout() {
 
   return (
     <View style={styles.root}>
-      <BlurTargetView ref={blurTargetRef} style={StyleSheet.absoluteFill}>
+      <BlurTargetView ref={blurTargetRef} style={{ flex: 1 }}>
         <Tabs
           tabBar={(props) => <FloatingGlassTabBar {...props} blurTargetRef={blurTargetRef} />}
           screenOptions={{

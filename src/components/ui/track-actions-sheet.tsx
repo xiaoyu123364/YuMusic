@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { Modal, StyleSheet, TextInput } from 'react-native';
+import { Alert, Modal, StyleSheet, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Sheet, Text, XStack, YStack } from 'tamagui';
 
@@ -11,7 +11,8 @@ import { isLoggedIn } from '@/features/account/user-api';
 import { libraryActions, useIsLiked, useLibrary, type LibraryPlaylist } from '@/features/library/store';
 import type { PlayerTrack } from '@/features/player/types';
 import { usePalette } from '@/hooks/use-palette';
-import { shareTrack } from '@/lib/share';
+import { downloadTrackToLibrary } from '@/lib/download';
+import { shareAudioFile, shareTrack } from '@/lib/share';
 import { MaterialLoading } from '@/components/ui/loading';
 
 type SheetBaseProps = {
@@ -281,7 +282,20 @@ export function TrackActionsSheet({
 
   function handleShare(current: PlayerTrack) {
     onOpenChange(false);
-    void shareTrack(current);
+    // 分享时让用户自选方式：分享码 / 音频文件
+    Alert.alert('分享歌曲', `《${current.title}》`, [
+      { text: '分享码', onPress: () => void shareTrack(current) },
+      { text: '分享音频文件', onPress: () => void shareAudioFile(current) },
+      { text: '取消', style: 'cancel' },
+    ]);
+  }
+
+  function handleDownload(current: PlayerTrack) {
+    onOpenChange(false);
+    showToast('正在下载到本地音乐…');
+    void downloadTrackToLibrary(current).then((uri) => {
+      showToast(uri ? '已下载到本地音乐' : '下载失败，请稍后重试');
+    });
   }
 
   return (
@@ -375,6 +389,11 @@ export function TrackActionsSheet({
                     icon={<Ionicons name="share-social-outline" size={20} color={palette.text} />}
                     label="分享"
                     onPress={() => handleShare(track)}
+                  />
+                  <ActionRow
+                    icon={<Ionicons name="download-outline" size={20} color={palette.text} />}
+                    label="下载到本地"
+                    onPress={() => handleDownload(track)}
                   />
                   <ActionRow
                     icon={<Ionicons name="information-circle-outline" size={21} color={palette.text} />}

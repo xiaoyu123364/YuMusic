@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { Text, XStack, YStack } from 'tamagui';
 
 import { addSpectrumListener, moekoeNative } from '@/features/android/native';
@@ -10,7 +10,7 @@ import { log } from '@/lib/logger';
 
 const BAR_COUNT = 24;
 
-/** 单根频谱条：接收 0~1 幅度，平滑过渡到目标高度。 */
+/** 单根频谱条：接收 0~1 幅度，用 spring 让条形「Q 弹」地跟随音频起伏。 */
 function SpectrumBar({ level, color }: { level: number; color: string }) {
   const h = useSharedValue(0);
   const prev = useRef(0);
@@ -20,12 +20,18 @@ function SpectrumBar({ level, color }: { level: number; color: string }) {
       return;
     }
     prev.current = level;
-    h.value = withTiming(level, { duration: 90 });
+    // 灵动：spring 带轻微过冲回弹；下降时阻尼更大、更「粘」，上升干脆利落。
+    const rising = level > h.value;
+    h.value = withSpring(level, {
+      damping: rising ? 16 : 20,
+      stiffness: rising ? 240 : 160,
+      mass: 0.55,
+    });
   }, [level, h]);
 
   const style = useAnimatedStyle(() => ({
-    height: Math.max(3, h.value * 64),
-    opacity: 0.35 + h.value * 0.65,
+    transform: [{ scaleY: 0.06 + h.value * 0.94 }],
+    opacity: 0.38 + h.value * 0.62,
   }));
 
   return (
@@ -114,6 +120,8 @@ export function SpectrumBars() {
 const styles = StyleSheet.create({
   bar: {
     flex: 1,
+    height: 64,
     borderRadius: 2,
+    transformOrigin: 'bottom',
   },
 });

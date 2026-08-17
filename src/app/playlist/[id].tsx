@@ -18,6 +18,7 @@ import { playCollection } from '@/features/player/play-collection';
 import { useHasTrack, usePlayer } from '@/features/player/store';
 import { useIsDark, usePalette } from '@/hooks/use-palette';
 import type { PlayerTrack } from '@/features/player/types';
+import { downloadTracksToLibrary } from '@/lib/download';
 import { shareTracksAsCodes } from '@/lib/share';
 import { MaterialLoading } from '@/components/ui/loading';
 
@@ -178,6 +179,26 @@ export default function PlaylistScreen() {
     setSharing(false);
     if (!ok) {
       showToast('分享失败，请稍后重试');
+    }
+  }
+
+  async function handleBatchDownload() {
+    const selected = state.tracks.filter((item) => selectedKeys.has(item.hash));
+    if (!selected.length) {
+      showToast('请先勾选要下载的歌曲');
+      return;
+    }
+    if (sharing) {
+      return;
+    }
+    setSharing(true);
+    showToast(`正在下载 ${selected.length} 首…`);
+    const ok = await downloadTracksToLibrary(selected);
+    setSharing(false);
+    if (ok > 0) {
+      showToast(`已下载 ${ok} 首到本地音乐`);
+    } else {
+      showToast('下载失败，请稍后重试');
     }
   }
 
@@ -377,21 +398,39 @@ export default function PlaylistScreen() {
             <Text color={palette.text} fontSize={13.5} fontWeight="700">
               已选 {selectedKeys.size} 首
             </Text>
-            <XStack
-              alignItems="center"
-              gap={6}
-              paddingHorizontal={16}
-              height={38}
-              borderRadius={19}
-              backgroundColor={palette.accent}
-              transition="quickest"
-              pressStyle={{ opacity: 0.85, scale: 0.97 }}
-              disabled={sharing || selectedKeys.size === 0}
-              onPress={() => void handleBatchShare()}>
-              <Ionicons name="share-social-outline" size={15} color={palette.onAccent} />
-              <Text color={palette.onAccent} fontSize={13.5} fontWeight="700">
-                {sharing ? '生成中…' : '分享'}
-              </Text>
+            <XStack gap={8} alignItems="center">
+              <XStack
+                alignItems="center"
+                gap={6}
+                paddingHorizontal={14}
+                height={38}
+                borderRadius={19}
+                backgroundColor={palette.cardAlt}
+                transition="quickest"
+                pressStyle={{ opacity: 0.85, scale: 0.97 }}
+                disabled={sharing || selectedKeys.size === 0}
+                onPress={() => void handleBatchDownload()}>
+                <Ionicons name="download-outline" size={15} color={palette.text} />
+                <Text color={palette.text} fontSize={13.5} fontWeight="700">
+                  下载
+                </Text>
+              </XStack>
+              <XStack
+                alignItems="center"
+                gap={6}
+                paddingHorizontal={16}
+                height={38}
+                borderRadius={19}
+                backgroundColor={palette.accent}
+                transition="quickest"
+                pressStyle={{ opacity: 0.85, scale: 0.97 }}
+                disabled={sharing || selectedKeys.size === 0}
+                onPress={() => void handleBatchShare()}>
+                <Ionicons name="share-social-outline" size={15} color={palette.onAccent} />
+                <Text color={palette.onAccent} fontSize={13.5} fontWeight="700">
+                  分享
+                </Text>
+              </XStack>
             </XStack>
           </XStack>
         </RNView>

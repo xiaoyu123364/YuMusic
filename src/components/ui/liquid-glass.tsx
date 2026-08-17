@@ -30,11 +30,11 @@ export const LiquidGlassSurface = memo(function LiquidGlassSurface({
     <>
       {/* 核心：真模糊背景（采样 blurTarget 指向的内容） */}
       <BlurView
-        intensity={barBlur ? 80 : 0}
+        intensity={barBlur ? 90 : 0}
         tint={isDark ? 'dark' : 'light'}
-        blurMethod="dimezisBlurViewSdk31Plus"
+        blurMethod="dimezisBlurView"
         blurTarget={blurTarget}
-        blurReductionFactor={3}
+        blurReductionFactor={2}
         style={[StyleSheet.absoluteFill, style]}
       />
       {/* 顶部折射高光 */}
