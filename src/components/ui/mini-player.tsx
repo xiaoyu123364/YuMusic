@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
-import { useEffect, type RefObject } from 'react';
-import { StyleSheet, type View as RNView } from 'react-native';
+import { useEffect } from 'react';
+import { StyleSheet } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Easing,
@@ -53,7 +53,7 @@ function ProgressHairline() {
   );
 }
 
-export function MiniPlayer({ blurTargetRef }: { blurTargetRef?: RefObject<RNView | null> }) {
+export function MiniPlayer({ backdropTargetId }: { backdropTargetId?: number | null }) {
   const palette = usePalette();
   const isDark = useIsDark();
   const barBlur = useBarBlur();
@@ -134,7 +134,7 @@ export function MiniPlayer({ blurTargetRef }: { blurTargetRef?: RefObject<RNView
         pressStyle={{ scale: 0.985 }}
         onPress={openPlayer}>
         {liquidGlass ? (
-          <LiquidGlassSurface radius={28} blurTarget={blurTargetRef} />
+          <LiquidGlassSurface radius={28} backdropTargetId={backdropTargetId} />
         ) : (
           <BlurView
             intensity={barBlur ? 75 : 0}

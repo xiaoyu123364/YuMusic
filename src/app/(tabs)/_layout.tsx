@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { BlurTargetView, BlurView } from 'expo-blur';
+import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
-import { useEffect, useRef, useState, type ComponentProps, type RefObject } from 'react';
+import { useEffect, useRef, useState, type ComponentProps } from 'react';
 import {
   Keyboard,
   Platform,
@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Text as RNText,
   View,
+  findNodeHandle,
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -42,8 +43,8 @@ type TabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>
 function FloatingGlassTabBar({
   state,
   navigation,
-  blurTargetRef,
-}: TabBarProps & { blurTargetRef: RefObject<View | null> }) {
+  backdropTargetId,
+}: TabBarProps & { backdropTargetId: number | null }) {
   const palette = usePalette();
   const isDark = useIsDark();
   const insets = useSafeAreaInsets();
@@ -98,7 +99,7 @@ function FloatingGlassTabBar({
             },
           ]}>
           {liquidGlass ? (
-            <LiquidGlassSurface radius={radius} blurTarget={blurTargetRef} />
+            <LiquidGlassSurface radius={radius} backdropTargetId={backdropTargetId} />
           ) : (
             <BlurView
               intensity={barBlur ? 75 : 0}
@@ -154,6 +155,8 @@ export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const backdropRef = useRef<View>(null);
+  const [backdropTargetId, setBackdropTargetId] = useState<number | null>(null);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -167,14 +170,23 @@ export default function TabsLayout() {
     };
   }, []);
 
+  // 把页面内容容器的 native handle 传给液态玻璃作为采样源（避开玻璃自身，避免递归）。
+  useEffect(() => {
+    const id = findNodeHandle(backdropRef.current);
+    if (id != null) {
+      setBackdropTargetId(id);
+    }
+  }, []);
+
   const dockWidth = Math.min(width - TabBarSideMargin * 2, 680);
-  const blurTargetRef = useRef<View>(null);
 
   return (
     <View style={styles.root}>
-      <BlurTargetView ref={blurTargetRef} style={{ flex: 1 }}>
+      <View ref={backdropRef} collapsable={false} style={{ flex: 1 }}>
         <Tabs
-          tabBar={(props) => <FloatingGlassTabBar {...props} blurTargetRef={blurTargetRef} />}
+          tabBar={(props) => (
+            <FloatingGlassTabBar {...props} backdropTargetId={backdropTargetId} />
+          )}
           screenOptions={{
             headerShown: false,
             sceneStyle: { backgroundColor: palette.background },
@@ -183,7 +195,7 @@ export default function TabsLayout() {
           <Tabs.Screen name="discover" />
           <Tabs.Screen name="me" />
         </Tabs>
-      </BlurTargetView>
+      </View>
 
       {keyboardVisible ? null : (
         <View
@@ -196,7 +208,7 @@ export default function TabsLayout() {
               marginLeft: (width - dockWidth) / 2,
             },
           ]}>
-          <MiniPlayer blurTargetRef={blurTargetRef} />
+          <MiniPlayer backdropTargetId={backdropTargetId} />
         </View>
       )}
     </View>
@@ -218,20 +230,6 @@ const styles = StyleSheet.create({
   card: {
     overflow: 'hidden',
     borderWidth: 1,
-  },
-  glassHighlight: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 28,
-  },
-  innerGlow: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 22,
   },
   row: {
     flex: 1,

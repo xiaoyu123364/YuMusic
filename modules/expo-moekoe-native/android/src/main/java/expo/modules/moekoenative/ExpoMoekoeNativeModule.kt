@@ -73,6 +73,33 @@ class ExpoMoekoeNativeModule : Module() {
       LyricOverlayManager.hide()
     }
 
+    // ---------- 原生液态玻璃 View（Liquid-Glass-Android） ----------
+
+    View(LiquidGlassSurfaceView::class) {
+      Name("LiquidGlassSurfaceView")
+      Prop("cornerRadius") { view: LiquidGlassSurfaceView, value: Float -> view.setCornerRadius(value) }
+      Prop("refractionHeight") { view: LiquidGlassSurfaceView, value: Float -> view.setRefractionHeight(value) }
+      Prop("bevelWidth") { view: LiquidGlassSurfaceView, value: Float -> view.setBevelWidth(value) }
+      Prop("dispersionStrength") { view: LiquidGlassSurfaceView, value: Float -> view.setDispersionStrength(value) }
+      Prop("blurAmount") { view: LiquidGlassSurfaceView, value: Float -> view.setBlurAmount(value) }
+      Prop("saturation") { view: LiquidGlassSurfaceView, value: Float -> view.setSaturation(value) }
+      Prop("aberrationIntensity") { view: LiquidGlassSurfaceView, value: Float -> view.setAberrationIntensity(value) }
+      Prop("displacementScale") { view: LiquidGlassSurfaceView, value: Float -> view.setDisplacementScale(value) }
+      Prop("elasticity") { view: LiquidGlassSurfaceView, value: Float -> view.setElasticity(value) }
+      Prop("enableSensorHighlight") { view: LiquidGlassSurfaceView, value: Boolean -> view.setEnableSensorHighlight(value) }
+      Prop("enableAdaptiveTint") { view: LiquidGlassSurfaceView, value: Boolean -> view.setEnableAdaptiveTint(value) }
+      Prop("enablePressEffect") { view: LiquidGlassSurfaceView, value: Boolean -> view.setEnablePressEffect(value) }
+      Prop("enableChromaticAberration") { view: LiquidGlassSurfaceView, value: Boolean -> view.setEnableChromaticAberration(value) }
+      Prop("enableEdgeHighlight") { view: LiquidGlassSurfaceView, value: Boolean -> view.setEnableEdgeHighlight(value) }
+      // 采样源：传页面内容容器的 node handle，绑定为背景采样源，避免自采样递归。
+      Prop("backdropTargetId") { view: LiquidGlassSurfaceView, id: Int ->
+        val target = appContext.findView<android.view.View>(id)
+        if (target != null) {
+          view.bindBackdrop(target)
+        }
+      }
+    }
+
     // ---------- 悬浮窗权限 ----------
 
     Function("canDrawOverlays") {

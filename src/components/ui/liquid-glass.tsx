@@ -1,98 +1,45 @@
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
-import { memo, type RefObject } from 'react';
-import { StyleSheet, type StyleProp, type View, type ViewStyle } from 'react-native';
-
-import { useBarBlur } from '@/features/settings/store';
-import { useIsDark, usePalette } from '@/hooks/use-palette';
+import { requireNativeViewManager } from 'expo-modules-core';
+import { memo } from 'react';
+import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 
 /**
- * 液态玻璃层：expo-blur BlurView 真模糊 + 折射高光 + 棱镜色散边缘 + 内发光。
+ * 原生液态玻璃（Liquid-Glass-Android）：
+ * 通过 expo ViewManager 包装 QWEA0 的 LiquidGlassView，提供 iOS 26 风格的
+ * SDF 折射 + 棱镜色散 + 传感器高光 + 触摸弹性。minSdk 24（经典管线），
+ * API 33+ 自动切 AGSL 透镜管线。
  *
- * Android 上必须传 `blurTarget`（指向包裹页面内容的 BlurTargetView）+ 显式
- * `blurMethod="dimezisBlurViewSdk31Plus"`，否则 BlurView 会退化为「半透明色块」——
- * 这是之前「没有液态玻璃」的根因（默认 blurMethod 是 none，不模糊）。
+ * 仅作为绝对定位背景层（pointerEvents=none），拖拽/点击由外层 reanimated 处理。
  */
+const NativeLiquidGlassView = requireNativeViewManager(
+  'ExpoMoekoeNative',
+  'LiquidGlassSurfaceView'
+);
+
 export const LiquidGlassSurface = memo(function LiquidGlassSurface({
   radius = 28,
-  blurTarget,
+  backdropTargetId,
   style,
 }: {
   radius?: number;
-  blurTarget?: RefObject<View | null>;
+  backdropTargetId?: number | null;
   style?: StyleProp<ViewStyle>;
 }) {
-  const palette = usePalette();
-  const isDark = useIsDark();
-  const barBlur = useBarBlur();
-
   return (
-    <>
-      {/* 核心：真模糊背景（采样 blurTarget 指向的内容） */}
-      <BlurView
-        intensity={barBlur ? 90 : 0}
-        tint={isDark ? 'dark' : 'light'}
-        blurMethod="dimezisBlurView"
-        blurTarget={blurTarget}
-        blurReductionFactor={2}
-        style={[StyleSheet.absoluteFill, style]}
-      />
-      {/* 顶部折射高光 */}
-      <LinearGradient
-        colors={[palette.glassHighlight, 'transparent']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={[styles.highlight, { borderTopLeftRadius: radius, borderTopRightRadius: radius }]}
-        pointerEvents="none"
-      />
-      {/* 棱镜色散边缘（顶部 1.5px 彩虹带） */}
-      <LinearGradient
-        colors={['rgba(255,92,158,0.30)', 'rgba(61,139,255,0.30)', 'rgba(52,168,83,0.26)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={[styles.dispersion, { borderTopLeftRadius: radius, borderTopRightRadius: radius }]}
-        pointerEvents="none"
-      />
-      {/* 对角折射光斑 */}
-      <LinearGradient
-        colors={['rgba(255,255,255,0.20)', 'transparent']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.6, y: 1 }}
-        style={[StyleSheet.absoluteFill, { borderTopLeftRadius: radius, borderBottomLeftRadius: radius }]}
-        pointerEvents="none"
-      />
-      {/* 底部内发光 */}
-      <LinearGradient
-        colors={['transparent', isDark ? 'rgba(0,0,0,0.16)' : 'rgba(0,0,0,0.05)']}
-        start={{ x: 0, y: 0.4 }}
-        end={{ x: 0, y: 1 }}
-        style={[styles.innerGlow, { borderBottomLeftRadius: radius, borderBottomRightRadius: radius }]}
-        pointerEvents="none"
-      />
-    </>
+    <NativeLiquidGlassView
+      cornerRadius={radius}
+      refractionHeight={64}
+      bevelWidth={16}
+      dispersionStrength={0.12}
+      saturation={150}
+      aberrationIntensity={2.2}
+      elasticity={0.18}
+      enableSensorHighlight
+      enableAdaptiveTint
+      enableChromaticAberration
+      enableEdgeHighlight
+      backdropTargetId={backdropTargetId}
+      pointerEvents="none"
+      style={[StyleSheet.absoluteFill, style]}
+    />
   );
-});
-
-const styles = StyleSheet.create({
-  highlight: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 30,
-  },
-  dispersion: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 2,
-  },
-  innerGlow: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 22,
-  },
 });

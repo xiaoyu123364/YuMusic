@@ -17,4 +17,6 @@ android {
 dependencies {
   implementation "androidx.media:media:1.7.0"
   implementation "androidx.palette:palette:1.0.0"
+  // 液态玻璃（iOS 26 风格）：SDF 折射 + 色散 + 传感器高光，minSdk 24，API 33+ 走 AGSL 透镜管线。
+  implementation "com.github.QWEA0:liquidglass:v2.0.2"
 }
