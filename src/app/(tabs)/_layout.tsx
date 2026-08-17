@@ -21,7 +21,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { MiniPlayer } from '@/components/ui/mini-player';
-import { LiquidGlassSurface } from '@/components/ui/liquid-glass';
+import { BackdropContext, LiquidGlassSurface } from '@/components/ui/liquid-glass';
 import {
   DockGap,
   TabBarBottomInset,
@@ -181,37 +181,39 @@ export default function TabsLayout() {
   const dockWidth = Math.min(width - TabBarSideMargin * 2, 680);
 
   return (
-    <View style={styles.root}>
-      <View ref={backdropRef} collapsable={false} style={{ flex: 1 }}>
-        <Tabs
-          tabBar={(props) => (
-            <FloatingGlassTabBar {...props} backdropTargetId={backdropTargetId} />
-          )}
-          screenOptions={{
-            headerShown: false,
-            sceneStyle: { backgroundColor: palette.background },
-          }}>
-          <Tabs.Screen name="index" />
-          <Tabs.Screen name="discover" />
-          <Tabs.Screen name="me" />
-        </Tabs>
-      </View>
-
-      {keyboardVisible ? null : (
-        <View
-          pointerEvents="box-none"
-          style={[
-            styles.dock,
-            {
-              bottom: insets.bottom + TabBarBottomInset + TabBarHeight + DockGap,
-              width: dockWidth,
-              marginLeft: (width - dockWidth) / 2,
-            },
-          ]}>
-          <MiniPlayer backdropTargetId={backdropTargetId} />
+    <BackdropContext.Provider value={backdropTargetId}>
+      <View style={styles.root}>
+        <View ref={backdropRef} collapsable={false} style={{ flex: 1 }}>
+          <Tabs
+            tabBar={(props) => (
+              <FloatingGlassTabBar {...props} backdropTargetId={backdropTargetId} />
+            )}
+            screenOptions={{
+              headerShown: false,
+              sceneStyle: { backgroundColor: palette.background },
+            }}>
+            <Tabs.Screen name="index" />
+            <Tabs.Screen name="discover" />
+            <Tabs.Screen name="me" />
+          </Tabs>
         </View>
-      )}
-    </View>
+
+        {keyboardVisible ? null : (
+          <View
+            pointerEvents="box-none"
+            style={[
+              styles.dock,
+              {
+                bottom: insets.bottom + TabBarBottomInset + TabBarHeight + DockGap,
+                width: dockWidth,
+                marginLeft: (width - dockWidth) / 2,
+              },
+            ]}>
+            <MiniPlayer backdropTargetId={backdropTargetId} />
+          </View>
+        )}
+      </View>
+    </BackdropContext.Provider>
   );
 }
 
