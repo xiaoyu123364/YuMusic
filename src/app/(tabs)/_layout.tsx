@@ -209,7 +209,7 @@ export default function TabsLayout() {
                 marginLeft: (width - dockWidth) / 2,
               },
             ]}>
-            <MiniPlayer backdropTargetId={backdropTargetId} />
+            <MiniPlayer />
           </View>
         )}
       </View>

@@ -144,6 +144,65 @@ function ToggleRow({
   );
 }
 
+const OVERLAY_COLORS = [
+  '#101016',
+  '#FFFFFF',
+  '#FF5C9E',
+  '#3D8BFF',
+  '#34A853',
+  '#F0B429',
+] as const;
+
+const OVERLAY_TEXT_COLORS = [
+  '#FFFFFF',
+  '#101016',
+  '#FF5C9E',
+  '#3D8BFF',
+  '#34A853',
+] as const;
+
+/** 颜色选择行：横向圆点，点击选中；null = 默认。 */
+function ColorRow({
+  label,
+  colors,
+  value,
+  onChange,
+}: {
+  label: string;
+  colors: readonly `#${string}`[];
+  value: string | null;
+  onChange: (color: string | null) => void;
+}) {
+  const palette = usePalette();
+
+  return (
+    <XStack height={52} paddingHorizontal={14} gap={10} alignItems="center">
+      <Text flex={1} color={palette.text} fontSize={14.5} fontWeight="500">
+        {label}
+      </Text>
+      {colors.map((color) => {
+        const active = value === color;
+        return (
+          <XStack
+            key={color}
+            width={26}
+            height={26}
+            borderRadius={13}
+            alignItems="center"
+            justifyContent="center"
+            borderWidth={2}
+            borderColor={active ? palette.accent : 'transparent'}
+            transition="quickest"
+            pressStyle={{ scale: 0.88 }}
+            onPress={() => onChange(active ? null : color)}>
+            <View width={18} height={18} borderRadius={9} backgroundColor={color} />
+          </XStack>
+        );
+      })}
+    </XStack>
+  );
+}
+
 function SettingsRow({
   label,
   value,
@@ -201,6 +260,8 @@ export default function SettingsScreen() {
     barBlur,
     floatingBar,
     liquidGlass,
+    lyricOverlayBg,
+    lyricOverlayText,
   } = useSettings();
   const [loggedIn, setLoggedIn] = useState(() => isLoggedIn());
   const [aboutVisible, setAboutVisible] = useState(false);
@@ -371,6 +432,27 @@ export default function SettingsScreen() {
               paddingVertical={4}
               overflow="hidden">
               <ToggleRow label="桌面歌词" value={desktopLyrics} onToggle={toggleDesktopLyrics} />
+              {desktopLyrics ? (
+                <>
+                  <View
+                    height={StyleSheet.hairlineWidth}
+                    backgroundColor={palette.border}
+                    marginHorizontal={14}
+                  />
+                  <ColorRow
+                    label="歌词框颜色"
+                    colors={OVERLAY_COLORS}
+                    value={lyricOverlayBg}
+                    onChange={(c) => settingsActions.setLyricOverlayBg(c)}
+                  />
+                  <ColorRow
+                    label="歌词字体颜色"
+                    colors={OVERLAY_TEXT_COLORS}
+                    value={lyricOverlayText}
+                    onChange={(c) => settingsActions.setLyricOverlayText(c)}
+                  />
+                </>
+              ) : null}
             </YStack>
           </YStack>
 

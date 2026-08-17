@@ -11,6 +11,8 @@ export type StoredAppearance = {
   floatingBar?: unknown;
   liquidGlass?: unknown;
   predictiveBack?: unknown;
+  lyricOverlayBg?: unknown;
+  lyricOverlayText?: unknown;
 };
 
 export async function readStoredAppearance(): Promise<StoredAppearance | null> {
@@ -33,6 +35,8 @@ export async function writeStoredAppearance(value: {
   floatingBar: boolean;
   liquidGlass: boolean;
   predictiveBack: boolean;
+  lyricOverlayBg: string | null;
+  lyricOverlayText: string | null;
 }): Promise<void> {
   try {
     await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(value));

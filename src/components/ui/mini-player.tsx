@@ -3,7 +3,6 @@ import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { StyleSheet } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Easing,
   FadeInDown,
@@ -12,14 +11,12 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
-  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import { Text, View, XStack, YStack } from 'tamagui';
 
 import { Artwork } from '@/components/ui/artwork';
-import { LiquidGlassSurface } from '@/components/ui/liquid-glass';
-import { useBarBlur, useLiquidGlass } from '@/features/settings/store';
+import { useBarBlur } from '@/features/settings/store';
 import { playerActions, usePlayer, usePlayerProgress } from '@/features/player/store';
 import { useIsDark, usePalette } from '@/hooks/use-palette';
 import { MaterialLoading } from '@/components/ui/loading';
@@ -53,11 +50,10 @@ function ProgressHairline() {
   );
 }
 
-export function MiniPlayer({ backdropTargetId }: { backdropTargetId?: number | null }) {
+export function MiniPlayer() {
   const palette = usePalette();
   const isDark = useIsDark();
   const barBlur = useBarBlur();
-  const liquidGlass = useLiquidGlass();
   const router = useRouter();
   const { track, playing, loading, buffering } = usePlayer();
   const rotation = useSharedValue(0);
@@ -78,24 +74,6 @@ export function MiniPlayer({ backdropTargetId }: { backdropTargetId?: number | n
     transform: [{ rotate: `${rotation.value % 360}deg` }],
   }));
 
-  // 液态玻璃拖拽：水平拖拽带阻尼位移 + 轻微倾斜，松手弹性回弹。
-  const dragX = useSharedValue(0);
-  const panGesture = Gesture.Pan()
-    .activeOffsetX([-8, 8])
-    .onUpdate((event) => {
-      dragX.value = event.translationX * 0.6;
-    })
-    .onEnd(() => {
-      dragX.value = withSpring(0, { damping: 15, stiffness: 200 });
-    });
-  const dragStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: dragX.value },
-      { rotate: `${dragX.value / 50}deg` },
-      { scale: 1 - Math.min(Math.abs(dragX.value) / 500, 0.04) },
-    ],
-  }));
-
   if (!track) {
     return null;
   }
@@ -113,8 +91,6 @@ export function MiniPlayer({ backdropTargetId }: { backdropTargetId?: number | n
 
   return (
     <Animated.View entering={FadeInDown.duration(260)} exiting={FadeOutDown.duration(200)}>
-      <GestureDetector gesture={panGesture}>
-        <Animated.View style={dragStyle}>
       <XStack
         height={MINI_PLAYER_HEIGHT}
         alignItems="center"
@@ -123,7 +99,7 @@ export function MiniPlayer({ backdropTargetId }: { backdropTargetId?: number | n
         borderRadius={28}
         borderWidth={1}
         overflow="hidden"
-        borderColor={liquidGlass ? palette.barBorder : palette.border}
+        borderColor={palette.border}
         backgroundColor={palette.barSurface}
         shadowColor={palette.dockShadow}
         shadowOffset={{ width: 0, height: isDark ? 3 : 8 }}
@@ -133,15 +109,11 @@ export function MiniPlayer({ backdropTargetId }: { backdropTargetId?: number | n
         transition="quickest"
         pressStyle={{ scale: 0.985 }}
         onPress={openPlayer}>
-        {liquidGlass ? (
-          <LiquidGlassSurface radius={28} backdropTargetId={backdropTargetId} />
-        ) : (
-          <BlurView
-            intensity={barBlur ? 75 : 0}
-            tint={isDark ? 'dark' : 'light'}
-            style={StyleSheet.absoluteFill}
-          />
-        )}
+        <BlurView
+          intensity={barBlur ? 75 : 0}
+          tint={isDark ? 'dark' : 'light'}
+          style={StyleSheet.absoluteFill}
+        />
 
         <Animated.View style={[{ width: 42, height: 42 }, spinStyle]}>
           <Artwork uri={track.coverUrl} size={42} circle />
@@ -197,8 +169,6 @@ export function MiniPlayer({ backdropTargetId }: { backdropTargetId?: number | n
 
         <ProgressHairline />
       </XStack>
-        </Animated.View>
-      </GestureDetector>
     </Animated.View>
   );
 }

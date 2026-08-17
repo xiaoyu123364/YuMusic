@@ -149,17 +149,57 @@ object LyricOverlayManager {
     }
   }
 
-  fun update(text: String, subText: String, isDark: Boolean) {
+  fun update(
+    text: String,
+    subText: String,
+    isDark: Boolean,
+    bgColor: String? = null,
+    textColor: String? = null
+  ) {
     ui.post {
       if (overlay == null) {
         return@post
       }
-      val lineColor = if (isDark) Color.WHITE else Color.rgb(20, 20, 28)
-      val subColor = if (isDark) Color.argb(175, 255, 255, 255) else Color.argb(190, 60, 60, 72)
+      // 背景框颜色：自定义 > 默认深色半透明
+      if (bgColor != null) {
+        val bg = parseColor(bgColor)
+        if (bg != null) {
+          overlay?.background = roundedBackground(bg, dp((overlay?.context ?: return@post), 24).toFloat())
+        }
+      }
+      // 字体颜色：自定义 > 跟随明暗（固定，不随动态取色变化）
+      val lineColor = if (textColor != null) {
+        parseColor(textColor) ?: (if (isDark) Color.WHITE else Color.rgb(20, 20, 28))
+      } else if (isDark) {
+        Color.WHITE
+      } else {
+        Color.rgb(20, 20, 28)
+      }
+      val subColor = if (textColor != null) {
+        (parseColor(textColor) ?: Color.WHITE) and 0x00FFFFFF or 0xAF000000.toInt()
+      } else if (isDark) {
+        Color.argb(175, 255, 255, 255)
+      } else {
+        Color.argb(190, 60, 60, 72)
+      }
       lineView?.setTextColor(lineColor)
       subView?.setTextColor(subColor)
       lineView?.text = text
       subView?.text = subText
+    }
+  }
+
+  /** 解析 #RRGGBB / #AARRGGBB 颜色；失败返回 null。 */
+  private fun parseColor(hex: String): Int? {
+    return try {
+      val clean = hex.removePrefix("#")
+      when (clean.length) {
+        6 -> Color.parseColor("#$clean")
+        8 -> Color.parseColor("#$clean")
+        else -> null
+      }
+    } catch (_: Exception) {
+      null
     }
   }
 }

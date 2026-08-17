@@ -22,6 +22,10 @@ export type SettingsState = {
   liquidGlass: boolean;
   /** 系统预测性返回手势（Android 15+）。 */
   predictiveBack: boolean;
+  /** 桌面歌词悬浮窗背景色（#RRGGBB，null=默认深色）。 */
+  lyricOverlayBg: string | null;
+  /** 桌面歌词悬浮窗字体色（#RRGGBB，null=跟随明暗，固定不随动态取色）。 */
+  lyricOverlayText: string | null;
 };
 
 const INITIAL_SETTINGS_STATE: SettingsState = {
@@ -34,6 +38,8 @@ const INITIAL_SETTINGS_STATE: SettingsState = {
   floatingBar: true,
   liquidGlass: true,
   predictiveBack: true,
+  lyricOverlayBg: null,
+  lyricOverlayText: null,
 };
 
 function createStore<T extends object>(initial: T) {
@@ -92,6 +98,8 @@ export function hydrateSettings(): Promise<void> {
         floatingBar: stored?.floatingBar !== false,
         liquidGlass: stored?.liquidGlass !== false,
         predictiveBack: stored?.predictiveBack !== false,
+        lyricOverlayBg: typeof stored?.lyricOverlayBg === 'string' ? stored.lyricOverlayBg : null,
+        lyricOverlayText: typeof stored?.lyricOverlayText === 'string' ? stored.lyricOverlayText : null,
         hydrated: true,
       });
     })().catch(() => {
@@ -102,7 +110,7 @@ export function hydrateSettings(): Promise<void> {
 }
 
 function persist() {
-  const { themeMode, accentId, desktopLyrics, monetColor, barBlur, floatingBar, liquidGlass, predictiveBack } =
+  const { themeMode, accentId, desktopLyrics, monetColor, barBlur, floatingBar, liquidGlass, predictiveBack, lyricOverlayBg, lyricOverlayText } =
     settingsStore.getState();
   void writeStoredAppearance({
     themeMode,
@@ -113,6 +121,8 @@ function persist() {
     floatingBar,
     liquidGlass,
     predictiveBack,
+    lyricOverlayBg,
+    lyricOverlayText,
   });
 }
 
@@ -147,6 +157,14 @@ export const settingsActions = {
   },
   setPredictiveBack(predictiveBack: boolean) {
     settingsStore.setState({ predictiveBack });
+    persist();
+  },
+  setLyricOverlayBg(color: string | null) {
+    settingsStore.setState({ lyricOverlayBg: color });
+    persist();
+  },
+  setLyricOverlayText(color: string | null) {
+    settingsStore.setState({ lyricOverlayText: color });
     persist();
   },
 };

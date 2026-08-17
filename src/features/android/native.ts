@@ -21,7 +21,13 @@ type NativeExpoMoekoe = {
   requestOverlayPermission: () => void;
   showLyricOverlay: () => void;
   hideLyricOverlay: () => void;
-  updateLyricOverlay: (text: string, subText: string, isDark: boolean) => void;
+  updateLyricOverlay: (
+    text: string,
+    subText: string,
+    isDark: boolean,
+    bgColor?: string | null,
+    textColor?: string | null
+  ) => void;
   updateMediaSession: (
     title: string,
     artist: string,

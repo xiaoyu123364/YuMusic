@@ -28,7 +28,7 @@ export async function ensureOverlayPermission(): Promise<boolean> {
  * - 用户从系统授权页返回时，若已授权则自动补显。
  */
 export function FloatingLyricsController() {
-  const { desktopLyrics } = useSettings();
+  const { desktopLyrics, lyricOverlayBg, lyricOverlayText } = useSettings();
   const isDark = useIsDark();
   const { track, lyrics, lyricsStatus } = usePlayer();
   const positionMs = usePlayerProgressSelector((state) => state.positionMs);
@@ -85,9 +85,11 @@ export function FloatingLyricsController() {
     moekoeNative.updateLyricOverlay(
       current || track.title,
       current ? `${track.title} · ${track.artist || ''}` : track.artist || '',
-      isDark
+      isDark,
+      lyricOverlayBg,
+      lyricOverlayText
     );
-  }, [desktopLyrics, track, lyrics, positionMs, isDark]);
+  }, [desktopLyrics, track, lyrics, positionMs, isDark, lyricOverlayBg, lyricOverlayText]);
 
   return null;
 }

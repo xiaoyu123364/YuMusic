@@ -127,8 +127,13 @@ class ExpoMoekoeNativeModule : Module() {
       LyricOverlayManager.hide()
     }
 
-    Function("updateLyricOverlay") { text: String, subText: String, isDark: Boolean ->
-      LyricOverlayManager.update(text, subText, isDark)
+    Function("updateLyricOverlay") {
+        text: String,
+        subText: String,
+        isDark: Boolean,
+        bgColor: String?,
+        textColor: String? ->
+      LyricOverlayManager.update(text, subText, isDark, bgColor, textColor)
     }
 
     // ---------- 前台播放服务桥接 ----------
