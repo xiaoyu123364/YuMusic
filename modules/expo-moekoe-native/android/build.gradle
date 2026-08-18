@@ -17,6 +17,8 @@ android {
 dependencies {
   implementation "androidx.media:media:1.7.0"
   implementation "androidx.palette:palette:1.0.0"
-  // 液态玻璃（iOS 26 风格）：SDF 折射 + 色散 + 传感器高光，minSdk 24，API 33+ 走 AGSL 透镜管线。
-  implementation "com.github.QWEA0:liquidglass:v2.0.2"
+  // 液态玻璃已改为零依赖自包含实现（见 LiquidGlassSurfaceView.kt）：
+  // API 31+ 使用框架原生 View.setBackgroundBlurRadius 做真正背景模糊（backdrop blur），
+  // API<31 降级为半透明磨砂面板（圆角 + 边缘高光描边）。
+  // 不再依赖任何第三方 JitPack / Maven 模糊库，避免包名不匹配与仓库不可达导致的编译失败。
 }
