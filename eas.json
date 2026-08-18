@@ -10,6 +10,11 @@
     },
     "production": {
       "channel": "production"
+    },
+    "simulator": {
+      "ios": {
+        "simulator": true
+      }
     }
   },
   "submit": {
