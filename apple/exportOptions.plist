@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  YuMusic · xcodebuild 导出 IPA 配置模板
+
+  使用方式（二选一）：
+  1) Ad Hoc 内部分发（真机，无需上架）：
+     - 将 method 保持 "ad-hoc"
+     - 填写 teamID（Apple Developer 账号的 10 位 Team ID）
+     - 在 Apple 后台创建 Ad Hoc Provisioning Profile 并包含目标设备 UDID
+  2) App Store 上架：
+     - 将 method 改为 "app-store"
+     - teamID 同上，使用 App Store 发布证书
+
+  注意：signingStyle 用 "manual" 时需确保本机已安装对应证书与 Profile；
+        也可改为 "automatic" 让 Xcode 自动管理（需 Xcode 已登录 Apple ID）。
+-->
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>ad-hoc</string>
+
+    <key>teamID</key>
+    <string>XXXXXXXXXX</string>
+
+    <key>signingStyle</key>
+    <string>manual</string>
+
+    <key>stripSwiftSymbols</key>
+    <true/>
+
+    <key>uploadSymbols</key>
+    <true/>
+
+    <key>compileBitcode</key>
+    <false/>
+</dict>
+</plist>

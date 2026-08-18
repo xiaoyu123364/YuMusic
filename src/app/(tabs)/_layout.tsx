@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
-import { useEffect, useRef, useState, type ComponentProps } from 'react';
+import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
 import {
   Keyboard,
   Platform,
@@ -98,7 +98,7 @@ function FloatingGlassTabBar({
               borderColor: liquidGlass ? palette.barBorder : palette.border,
             },
           ]}>
-          {liquidGlass ? (
+          {liquidGlass && backdropTargetId != null ? (
             <LiquidGlassSurface radius={radius} backdropTargetId={backdropTargetId} />
           ) : (
             <BlurView
@@ -171,19 +171,34 @@ export default function TabsLayout() {
   }, []);
 
   // 把页面内容容器的 native handle 传给液态玻璃作为采样源（避开玻璃自身，避免递归）。
-  useEffect(() => {
+  // 关键修复：必须在视图真正挂载并拿到原生节点后才能采样，因此用 onLayout + rAF 兜底重试，
+  // 避免一次性 useEffect 在新架构 / 并发渲染下拿到 null，导致玻璃始终无 backdrop 源而全透明、不可见。
+  const captureBackdrop = useCallback(() => {
     const id = findNodeHandle(backdropRef.current);
     if (id != null) {
       setBackdropTargetId(id);
+      return true;
     }
+    return false;
   }, []);
+
+  useEffect(() => {
+    if (captureBackdrop()) return;
+    let raf = 0;
+    const tick = () => {
+      if (captureBackdrop()) return;
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [captureBackdrop]);
 
   const dockWidth = Math.min(width - TabBarSideMargin * 2, 680);
 
   return (
     <BackdropContext.Provider value={backdropTargetId}>
       <View style={styles.root}>
-        <View ref={backdropRef} collapsable={false} style={{ flex: 1 }}>
+        <View ref={backdropRef} collapsable={false} style={{ flex: 1 }} onLayout={captureBackdrop}>
           <Tabs
             tabBar={(props) => (
               <FloatingGlassTabBar {...props} backdropTargetId={backdropTargetId} />
