@@ -4,7 +4,9 @@ import { fileURLToPath } from 'node:url';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(scriptDir, '..');
-const apiModulesDir = path.join(rootDir, 'api', 'module');
+// 后端 api/ 子模块已 vendoring 进本仓库（src/lib/kugou-api/vendor/module），
+// 生成器直接读取 vendored 副本，避免将来重新生成时又把 require 指回未随 EAS tarball 上传的 git 子模块。
+const apiModulesDir = path.join(rootDir, 'src', 'lib', 'kugou-api', 'vendor', 'module');
 const generatedDir = path.join(rootDir, 'src', 'lib', 'kugou-api', 'generated');
 const generatedJsPath = path.join(generatedDir, 'modules.js');
 const generatedDtsPath = path.join(generatedDir, 'modules.d.ts');
@@ -20,7 +22,7 @@ function createModulesJs(moduleNames) {
     'const modules = {',
     ...moduleNames.map(
       (name) =>
-        `  ${JSON.stringify(name)}: (params, useAxios) => require(${JSON.stringify(`../../../../api/module/${name}.js`)})(params, useAxios),`
+        `  ${JSON.stringify(name)}: (params, useAxios) => require(${JSON.stringify(`../vendor/module/${name}.js`)})(params, useAxios),`
     ),
     '};',
     '',
