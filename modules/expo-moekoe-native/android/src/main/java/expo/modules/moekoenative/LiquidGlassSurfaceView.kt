@@ -198,8 +198,11 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
     if (backdrop != null && backdrop.width > 0 && backdrop.height > 0 && isAttachedToWindow) {
       drawBlurredBackdrop(canvas, backdrop)
     } else {
-      // 兜底：无采样源时也给一层淡淡冷白，保证「看得见」
-      canvas.drawColor(Color.argb(28, 255, 255, 255))
+      // 兜底：无采样源时也给一层淡淡冷白，保证「看得见」。
+      // 注意：drawColor 会忽略 clip 而填整块画布，故改用 drawRect(Paint) 以尊重圆角裁剪，
+      // 避免圆角外的四角出现多余白边。
+      val fb = Paint().apply { color = Color.argb(28, 255, 255, 255) }
+      canvas.drawRect(0f, 0f, w, h, fb)
     }
     canvas.restore()
 
