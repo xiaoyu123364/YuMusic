@@ -95,8 +95,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "b40e70cf-7d4b-4a09-8f1d-c17b730e6d96"
+        "projectId": "d2b8d295-445c-432b-a488-806d58ecc8d4"
       }
-    }
+    },
+    "owner": "yuzhengxins-team"
   }
 }
