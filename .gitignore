@@ -55,5 +55,10 @@ modules/*/android/build/
 modules/*/android/.cxx/
 .gradle/
 
+# ---- 本地构建交付物（体积大，不入仓 / 不进 EAS tarball） ----
+# 本地拉取的预览 APK 与 iOS 模拟器包，仅作本机交付用
+yumusic-*.apk
+yumusic-*.tar.gz
+
 # ---- WorkBuddy 项目数据（内部数据，勿公开）----
 .workbuddy/
