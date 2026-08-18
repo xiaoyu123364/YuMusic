@@ -61,7 +61,9 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
   private val blurPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true }
 
   // ---- API31+ 硬件模糊用 ----
-  private var renderNode: RenderNode? = null
+  // 以 Any? 存储，避免 minSdk<29 设备加载类时引用 RenderNode 触发 NoClassDefFoundError；
+  // 仅在 API31+ 的 drawBackdropRenderNode 内安全强转为 RenderNode。
+  private var renderNode: Any? = null
 
   /** 重入保护，防止把玻璃自身作为 backdrop 时递归绘制。 */
   @Volatile
@@ -249,18 +251,19 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
     w: Int,
     h: Int
   ) {
-    var node = renderNode
+    var node = renderNode as? RenderNode
     if (node == null || node.width != w || node.height != h) {
       node = RenderNode("liquidGlassBackdrop")
       node.setPosition(0, 0, w, h)
       renderNode = node
     }
-    val rnCanvas = node.beginRecording(w, h)
+    val n = node!!
+    val rnCanvas = n.beginRecording(w, h)
     rnCanvas.translate(dx, dy)
     backdrop.draw(rnCanvas)
-    node.endRecording()
-    node.setRenderEffect(RenderEffect.createBlurEffect(blurPx, blurPx, Shader.TileMode.CLAMP))
-    canvas.drawRenderNode(node)
+    n.endRecording()
+    n.setRenderEffect(RenderEffect.createBlurEffect(blurPx, blurPx, Shader.TileMode.CLAMP))
+    canvas.drawRenderNode(n)
   }
 
   private fun drawBackdropBitmap(
