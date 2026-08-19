@@ -12,6 +12,7 @@ import android.graphics.PorterDuff
 import android.graphics.RectF
 import android.graphics.RenderEffect
 import android.graphics.RenderNode
+import android.graphics.RuntimeShader
 import android.graphics.Shader
 import android.os.Build
 import android.view.View
@@ -65,6 +66,10 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
   // 仅在 API31+ 的 drawBackdropRenderNode 内安全强转为 RenderNode。
   private var renderNode: Any? = null
 
+  // API33+ 液态玻璃光学着色器（折射 / 色散 / 饱和度提升）。
+  // 以 Any? 存储，仅在 API33+ 方法内强转为 RuntimeShader，规避低版本类加载 NoClassDefFoundError。
+  private var glassShader: Any? = null
+
   /** 重入保护，防止把玻璃自身作为 backdrop 时递归绘制。 */
   @Volatile
   private var isDrawing = false
@@ -73,6 +78,56 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
     // 透明背景 + 允许自身绘制
     setBackgroundColor(Color.TRANSPARENT)
     setWillNotDraw(false)
+  }
+
+  companion object {
+    /**
+     * AGSL（Skia SkSL 方言）液态玻璃光学着色器。
+     * 把上游模糊后的 backdrop 当作 `content` 输入，沿圆角矩形的边缘法线做折射偏移
+     * （中心清晰、边缘像透镜一样弯曲），并按法线做 RGB 色散，模拟 iOS 26 Liquid Glass
+     * 的"透镜"观感——这是"像玻璃而不像模糊"的关键。低于 API33 不编译、不引用。
+     *
+     * 坐标在像素空间：fragCoord ∈ [0,w]×[0,h]，iResolution 为节点像素尺寸。
+     * 仅在边缘 band 内施加折射/色散，中心区域（d 远离 0）保持原样。
+     */
+    private const val GLASS_AGSL = """
+      uniform shader content;
+      uniform float2 iResolution;
+      uniform float iCorner;
+      uniform float iLens;
+      uniform float iAberration;
+      uniform float iVibrancy;
+
+      float sdRoundRect(vec2 p, vec2 b, float r) {
+        vec2 q = abs(p) - b + r;
+        return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
+      }
+      vec3 sat(vec3 c, float s) {
+        float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+        return mix(vec3(l), c, s);
+      }
+      vec4 main(vec2 fragCoord) {
+        vec2 halfSize = iResolution * 0.5;
+        float r = min(iCorner, min(halfSize.x, halfSize.y));
+        vec2 p = fragCoord - halfSize;
+        float d = sdRoundRect(p, halfSize, r);
+        float band = min(iResolution.x, iResolution.y) * 0.18;
+        float edge = smoothstep(-band, 0.0, d);
+        float e = 1.5;
+        float nx = sdRoundRect(p + vec2(e, 0.0), halfSize, r) - sdRoundRect(p - vec2(e, 0.0), halfSize, r);
+        float ny = sdRoundRect(p + vec2(0.0, e), halfSize, r) - sdRoundRect(p - vec2(0.0, e), halfSize, r);
+        vec2 n = normalize(vec2(nx, ny) + vec2(1e-5));
+        vec2 off = -n * (iLens * edge);
+        vec2 base = fragCoord + off;
+        vec2 disp = n * (iAberration * edge);
+        vec3 col;
+        col.r = content.eval(clamp(base + disp, vec2(0.0), iResolution)).r;
+        col.g = content.eval(clamp(base, vec2(0.0), iResolution)).g;
+        col.b = content.eval(clamp(base - disp, vec2(0.0), iResolution)).b;
+        col = sat(col, iVibrancy);
+        return vec4(col, 1.0);
+      }
+    """
   }
 
   /**
@@ -289,6 +344,36 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
    * 高斯模糊，再将其放大贴回玻璃画布。这里操作的是独立离屏节点 + 一张静态 Bitmap，
    * 与 backdrop 的 RenderNode 完全无关，因此不会重入录制、不会闪退。
    */
+  @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+  private fun getGlassShader(): RuntimeShader? {
+    if (glassShader == null) {
+      // 编译失败（AGSL 语法/驱动问题）时降级为 null，调用方退化为纯模糊，绝不崩溃
+      glassShader = try {
+        RuntimeShader(GLASS_AGSL)
+      } catch (_: Throwable) {
+        null
+      }
+    }
+    return glassShader as? RuntimeShader
+  }
+
+  @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+  private fun buildGlassChainEffect(blurPx: Float, w: Int, h: Int): RenderEffect {
+    val blur = RenderEffect.createBlurEffect(blurPx, blurPx, Shader.TileMode.CLAMP)
+    val shader = getGlassShader() ?: return blur
+    // 折射强度随玻璃较小边成比例（像素），色散随 enableChromaticAberration / aberrationIntensity
+    val lens = (minOf(w, h) * 0.08f).coerceIn(6f, 40f)
+    val aberr = if (enableChromaticAberration) aberrationIntensity.coerceAtLeast(0f) * 1.5f else 0f
+    shader.setFloatUniform("iResolution", w.toFloat(), h.toFloat())
+    shader.setFloatUniform("iCorner", cornerRadius)
+    shader.setFloatUniform("iLens", lens)
+    shader.setFloatUniform("iAberration", aberr)
+    shader.setFloatUniform("iVibrancy", 1.15f)
+    val material = RenderEffect.createRuntimeShaderEffect(shader, "content")
+    // 先跑 blur（作为 content 输入），再跑透镜着色器
+    return RenderEffect.createChainEffect(material, blur)
+  }
+
   @RequiresApi(Build.VERSION_CODES.S)
   private fun drawBlurredViaRenderEffect(
     canvas: Canvas,
@@ -307,7 +392,14 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
     val rnCanvas = n.beginRecording(w, h)
     rnCanvas.drawBitmap(sample, null, RectF(0f, 0f, w.toFloat(), h.toFloat()), blurPaint)
     n.endRecording()
-    n.setRenderEffect(RenderEffect.createBlurEffect(blurPx, blurPx, Shader.TileMode.CLAMP))
+
+    // API33+：模糊 → AGSL 透镜（折射 / 色散）；低于 33 仅纯模糊
+    val effect = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+      buildGlassChainEffect(blurPx, w, h)
+    } else {
+      RenderEffect.createBlurEffect(blurPx, blurPx, Shader.TileMode.CLAMP)
+    }
+    n.setRenderEffect(effect)
     canvas.drawRenderNode(n)
     n.setRenderEffect(null)
   }
