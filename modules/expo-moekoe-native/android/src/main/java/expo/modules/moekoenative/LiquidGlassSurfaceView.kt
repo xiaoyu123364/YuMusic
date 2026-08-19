@@ -76,24 +76,22 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
   }
 
   /**
-   * 绑定背景采样源。会做防御：拒绝把玻璃自身或其祖先作为 backdrop，避免自采样递归。
-   * 若目标尚未 attach / 尺寸为 0，仅保存引用，待下次绘制时再尝试。
+   * 绑定背景采样源（页面内容容器）。
+   *
+   * 这里**允许**把祖先视图作为 backdrop：玻璃本就是 backdrop 子树的一部分，
+   * 采样时必然把"玻璃自身"也圈进 backdrop 的绘制范围。重入递归的保护不靠"拒绝祖先"，
+   * 而由 [onDraw] 中的 [isDrawing] 标志承担——在绘制 backdrop 的过程中再次遍历到玻璃自身时，
+   * onDraw 直接提前返回，不再二次 beginRecording 同一 RenderNode，从而既避免崩溃，
+   * 又保证玻璃能真正拿到背后被模糊的画面（而不是永远退化成兜底白块）。
+   *
+   * 仅拒绝把玻璃自身（target == this）作为 backdrop，避免无意义自采样。
    */
   fun bindBackdrop(target: View) {
-    if (target == this || isDescendantOf(target)) {
+    if (target == this) {
       return
     }
     backdropTarget = target
     invalidate()
-  }
-
-  private fun isDescendantOf(candidate: View): Boolean {
-    var p: View? = this
-    while (p != null) {
-      if (p == candidate) return true
-      p = p.parent as? View
-    }
-    return false
   }
 
   // ---------- 属性转发（与 ExpoMoekoeNativeModule Prop 名称严格对应） ----------
@@ -220,8 +218,16 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
 
   /**
    * 将 backdrop 视图中「位于玻璃背后」的那一块区域模糊后贴回。
-   * 通过 getLocationOnScreen 计算玻璃与目标视图的屏幕坐标偏移，
-   * 在离屏画布上按偏移绘制目标视图，使对齐区域正确。
+   *
+   * 关键修复（RenderNode 重入崩溃）：
+   *   玻璃本就是 backdrop 的子节点，系统绘制时正处于「backdrop 自身 DisplayList 录制中」。
+   *   旧实现用硬件 RecordingCanvas 直接对 backdrop 调用 [View.draw]（→ 内部再触发
+   *   [View.updateDisplayListIfDirty]），等于对同一个 backdrop RenderNode 二次 beginRecording，
+   *   触发 `IllegalStateException: Recording currently in progress` 闪退。
+   *
+   *   现改为：**用软件 Canvas 把 backdrop 降采样绘制到离屏 Bitmap**（软件路径绝不会重录
+   *   backdrop 的 RenderNode），再对这张 Bitmap 做模糊后贴回玻璃。玻璃自身作为 backdrop 子节点
+   *   在软件采样时再次触发的 onDraw 已由 [isDrawing] 标志提前返回，不会递归。
    */
   private fun drawBlurredBackdrop(canvas: Canvas, backdrop: View) {
     val w = width
@@ -237,52 +243,10 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
 
     val blurPx = blurRadiusPx.coerceAtLeast(1f)
 
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-      drawBackdropRenderNode(canvas, backdrop, dx, dy, blurPx, w, h)
-    } else {
-      drawBackdropBitmap(canvas, backdrop, dx, dy, blurPx, w, h)
-    }
-  }
-
-  @RequiresApi(Build.VERSION_CODES.S)
-  private fun drawBackdropRenderNode(
-    canvas: Canvas,
-    backdrop: View,
-    dx: Float,
-    dy: Float,
-    blurPx: Float,
-    w: Int,
-    h: Int
-  ) {
-    var node = renderNode as? RenderNode
-    if (node == null || node.width != w || node.height != h) {
-      node = RenderNode("liquidGlassBackdrop")
-      node.setPosition(0, 0, w, h)
-      renderNode = node
-    }
-    val n = node!!
-    val rnCanvas = n.beginRecording(w, h)
-    rnCanvas.translate(dx, dy)
-    backdrop.draw(rnCanvas)
-    n.endRecording()
-    n.setRenderEffect(RenderEffect.createBlurEffect(blurPx, blurPx, Shader.TileMode.CLAMP))
-    canvas.drawRenderNode(n)
-  }
-
-  private fun drawBackdropBitmap(
-    canvas: Canvas,
-    backdrop: View,
-    dx: Float,
-    dy: Float,
-    blurPx: Float,
-    w: Int,
-    h: Int
-  ) {
-    // 降采样到较小尺寸，兼顾性能与「放大即柔化」的模糊观感
-    val maxSide = 180
+    // 降采样到较小尺寸：兼顾性能，且「放大即柔化」本身也贡献模糊观感
+    val maxSide = 200
     val scale = (maxSide.toFloat() / maxOf(w, h).coerceAtLeast(1))
-      .coerceAtMost(1f)
-      .coerceAtLeast(0.04f)
+      .coerceIn(0.05f, 1f)
     val sw = maxOf(1, (w * scale).toInt())
     val sh = maxOf(1, (h * scale).toInt())
 
@@ -292,22 +256,60 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
       sample = Bitmap.createBitmap(sw, sh, Bitmap.Config.ARGB_8888)
       sampleBitmap = sample
     }
+
+    // 软件离屏采样：绝不对 backdrop 调用硬件录制，避免 RenderNode 重入崩溃
     val sCanvas = Canvas(sample)
     sCanvas.setMatrix(Matrix())
     sCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
     sCanvas.translate(dx * scale, dy * scale)
     sCanvas.scale(scale, scale)
-    backdrop.draw(sCanvas)
+    try {
+      backdrop.draw(sCanvas)
+    } catch (e: Exception) {
+      // 极少数子视图（视频/地图等）在软件画布下绘制可能抛错，降级为兜底冷白
+      sample.eraseColor(Color.argb(28, 255, 255, 255))
+    }
 
-    // 在小图上做盒式模糊（3 趟近似高斯），半径随缩放同步减小
-    val radius = maxOf(1, (blurPx * scale).toInt())
-    val blurred = boxBlur(sample!!, radius)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      // API31+：GPU RenderEffect 高斯模糊（作用于降采样图，再放大贴回）
+      drawBlurredViaRenderEffect(canvas, sample!!, blurPx * scale, w, h)
+    } else {
+      // 旧机型：3 趟盒式模糊近似高斯
+      val radius = maxOf(1, (blurPx * scale).toInt())
+      val blurred = boxBlur(sample!!, radius)
+      canvas.drawBitmap(blurred, null, RectF(0f, 0f, w.toFloat(), h.toFloat()), blurPaint)
+      // 回收上一帧的临时模糊图，复用当前帧
+      blurredBitmap?.recycle()
+      blurredBitmap = blurred
+    }
+  }
 
-    canvas.drawBitmap(blurred, null, RectF(0f, 0f, w.toFloat(), h.toFloat()), blurPaint)
-
-    // 回收上一帧的临时模糊图，复用当前帧
-    blurredBitmap?.recycle()
-    blurredBitmap = blurred
+  /**
+   * API31+：把降采样样本绘制到「我们自己的」离屏 [RenderNode] 并施加 GPU [RenderEffect]
+   * 高斯模糊，再将其放大贴回玻璃画布。这里操作的是独立离屏节点 + 一张静态 Bitmap，
+   * 与 backdrop 的 RenderNode 完全无关，因此不会重入录制、不会闪退。
+   */
+  @RequiresApi(Build.VERSION_CODES.S)
+  private fun drawBlurredViaRenderEffect(
+    canvas: Canvas,
+    sample: Bitmap,
+    blurPx: Float,
+    w: Int,
+    h: Int
+  ) {
+    var node = renderNode as? RenderNode
+    if (node == null || node.width != w || node.height != h) {
+      node = RenderNode("liquidGlassBlur")
+      node.setPosition(0, 0, w, h)
+      renderNode = node
+    }
+    val n = node!!
+    val rnCanvas = n.beginRecording(w, h)
+    rnCanvas.drawBitmap(sample, null, RectF(0f, 0f, w.toFloat(), h.toFloat()), blurPaint)
+    n.endRecording()
+    n.setRenderEffect(RenderEffect.createBlurEffect(blurPx, blurPx, Shader.TileMode.CLAMP))
+    canvas.drawRenderNode(n)
+    n.setRenderEffect(null)
   }
 
   /** 玻璃质感：冷白磨砂填充 + 沿圆角描边的浅色高光。 */
