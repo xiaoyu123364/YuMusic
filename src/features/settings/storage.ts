@@ -5,6 +5,10 @@ const STORAGE_KEY = 'moekoe.settings.appearance';
 export type StoredAppearance = {
   themeMode?: unknown;
   accentId?: unknown;
+  designStyle?: unknown;
+  customControlGlass?: unknown;
+  customBarGlass?: unknown;
+  customSliderLook?: unknown;
   desktopLyrics?: unknown;
   monetColor?: unknown;
   barBlur?: unknown;
@@ -29,6 +33,10 @@ export async function readStoredAppearance(): Promise<StoredAppearance | null> {
 export async function writeStoredAppearance(value: {
   themeMode: string;
   accentId: string;
+  designStyle: string;
+  customControlGlass: string;
+  customBarGlass: string;
+  customSliderLook: string;
   desktopLyrics: boolean;
   monetColor: boolean;
   barBlur: boolean;

@@ -5,6 +5,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo } from 'react';
 import { Platform } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { TamaguiProvider } from 'tamagui';
 
 import { hydrateSettings, useSettingsHydrated } from '@/features/settings/store';
@@ -68,59 +69,62 @@ export default function RootLayout() {
   }
 
   return (
-    <TamaguiProvider config={tamaguiConfig} defaultTheme={isDark ? 'dark' : 'light'}>
-      <ThemeProvider value={navTheme}>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            animation: 'slide_from_right',
-            animationDuration: 300,
-          }}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen
-            name="player"
-            options={{
-              presentation: 'modal',
-              animation: 'slide_from_bottom',
+    // RNGH 手势根容器：缺失时所有 GestureDetector（毛毛虫滑杆等）静默失效。
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <TamaguiProvider config={tamaguiConfig} defaultTheme={isDark ? 'dark' : 'light'}>
+        <ThemeProvider value={navTheme}>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              animation: 'slide_from_right',
               animationDuration: 300,
-              gestureEnabled: true,
-              gestureDirection: 'vertical',
-            }}
-          />
-          <Stack.Screen name="playlist/[id]" />
-          <Stack.Screen name="rank/[id]" />
-          <Stack.Screen name="album/[id]" />
-          <Stack.Screen
-            name="search"
-            options={{
-              animation: 'fade_from_bottom',
-              animationDuration: 300,
-            }}
-          />
-          <Stack.Screen
-            name="recognize"
-            options={{
-              animation: 'fade_from_bottom',
-              animationDuration: 300,
-            }}
-          />
-          <Stack.Screen name="cloud" />
-          <Stack.Screen
-            name="login"
-            options={{
-              presentation: 'modal',
-              animation: 'slide_from_bottom',
-              animationDuration: 300,
-            }}
-          />
-          <Stack.Screen name="settings" />
-          <Stack.Screen name="web" />
-        </Stack>
-        <ToastHost />
-        <MediaSessionController />
-        <FloatingLyricsController />
-        <StatusBar style={isDark ? 'light' : 'dark'} />
-      </ThemeProvider>
-    </TamaguiProvider>
+            }}>
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen
+              name="player"
+              options={{
+                presentation: 'modal',
+                animation: 'slide_from_bottom',
+                animationDuration: 300,
+                gestureEnabled: true,
+                gestureDirection: 'vertical',
+              }}
+            />
+            <Stack.Screen name="playlist/[id]" />
+            <Stack.Screen name="rank/[id]" />
+            <Stack.Screen name="album/[id]" />
+            <Stack.Screen
+              name="search"
+              options={{
+                animation: 'fade_from_bottom',
+                animationDuration: 300,
+              }}
+            />
+            <Stack.Screen
+              name="recognize"
+              options={{
+                animation: 'fade_from_bottom',
+                animationDuration: 300,
+              }}
+            />
+            <Stack.Screen name="cloud" />
+            <Stack.Screen
+              name="login"
+              options={{
+                presentation: 'modal',
+                animation: 'slide_from_bottom',
+                animationDuration: 300,
+              }}
+            />
+            <Stack.Screen name="settings" />
+            <Stack.Screen name="web" />
+          </Stack>
+          <ToastHost />
+          <MediaSessionController />
+          <FloatingLyricsController />
+          <StatusBar style={isDark ? 'light' : 'dark'} />
+        </ThemeProvider>
+      </TamaguiProvider>
+    </GestureHandlerRootView>
   );
 }

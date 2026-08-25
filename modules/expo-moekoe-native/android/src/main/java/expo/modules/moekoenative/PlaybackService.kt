@@ -88,6 +88,9 @@ class PlaybackService : Service() {
   private var artwork: Bitmap? = null
   private var playing: Boolean = false
 
+  /** 已成功加载封面对应的 URL，避免进度 tick 反复重新下载。 */
+  private var loadedArtworkUrl: String? = null
+
   override fun onBind(intent: Intent?): IBinder? = null
 
   override fun onCreate() {
@@ -116,11 +119,15 @@ class PlaybackService : Service() {
         lastArtworkUrl = artworkUrl
 
         updateSession(duration, position)
-        if (artworkUrl.isNotEmpty()) {
+        // 封面只在 URL 变化时重新下载：进度/播放状态 tick 高频到达，
+        // 若每次都走 lastArtworkUrl 兜底重下，会反复重建通知并造成状态显示延迟。
+        if (artworkUrl.isNotEmpty() && artworkUrl != loadedArtworkUrl) {
+          val urlToLoad = artworkUrl
           CoroutineScope(Dispatchers.IO).launch {
-            val bmp = loadArtwork(artworkUrl)
+            val bmp = loadArtwork(urlToLoad)
             if (bmp != null) {
               artwork = bmp
+              loadedArtworkUrl = urlToLoad
               updateSession(lastDuration, lastPosition)
             }
             updateNotification()
@@ -145,24 +152,24 @@ class PlaybackService : Service() {
   private fun ensureSession() {
     if (mediaSession != null) return
     val callback = object : MediaSessionCompat.Callback() {
+      // 统一走广播单通道：MediaSession 回调与通知栏按钮都只发一次广播，
+      // 由 ExpoMoekoeNativeModule 的接收器 emit 给 JS。
+      // 严禁在此再直接调用 playbackEventSink —— 双通道会导致每次点击触发两次
+      // （下一首连跳两首、播放暂停切两次等于没切，表现为状态"自己弹回去"）。
       override fun onPlay() {
         sendBroadcast(Intent(EVENT_PLAY_PAUSE).setPackage(packageName))
-        ExpoMoekoeNativeModule.playbackEventSink?.invoke("onPlayPause")
       }
 
       override fun onPause() {
         sendBroadcast(Intent(EVENT_PLAY_PAUSE).setPackage(packageName))
-        ExpoMoekoeNativeModule.playbackEventSink?.invoke("onPlayPause")
       }
 
       override fun onSkipToNext() {
         sendBroadcast(Intent(EVENT_NEXT).setPackage(packageName))
-        ExpoMoekoeNativeModule.playbackEventSink?.invoke("onNext")
       }
 
       override fun onSkipToPrevious() {
         sendBroadcast(Intent(EVENT_PREVIOUS).setPackage(packageName))
-        ExpoMoekoeNativeModule.playbackEventSink?.invoke("onPrevious")
       }
 
       override fun onSeekTo(pos: Long) {

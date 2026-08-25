@@ -117,7 +117,14 @@ module.exports = (params, useAxios) => {
       responseType: 'arraybuffer',
     })
       .then((res) => {
-        res.body = playlistAesDecrypt({ str: res.body.toString('base64'), key: aesEncrypt.key });
+        // 请求层可能已把明文 JSON 响应解析成对象（风控拦截时常返回明文），此时无需解密
+        if (!res.body || typeof res.body !== 'object' || Buffer.isBuffer(res.body)) {
+          try {
+            res.body = playlistAesDecrypt({ str: Buffer.from(res.body).toString('base64'), key: aesEncrypt.key });
+          } catch {
+            // 解密失败时保留原始 body，交由上层判断
+          }
+        }
 
         const { body } = res;
         if (body?.status === 1 && body?.data) {

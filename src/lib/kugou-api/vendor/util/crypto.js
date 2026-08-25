@@ -120,8 +120,11 @@ function wordArrayFromBuffer(uint8) {
 
 function wordArrayToBuffer(wordArray) {
   const { words, sigBytes } = wordArray;
-  const uint8 = new Uint8Array(sigBytes);
-  for (let i = 0; i < sigBytes; i++) {
+  // AES 解密失败（密钥/密文不匹配）时 CryptoJS 会给出负 sigBytes，
+  // 直接 new Uint8Array(负数) 会抛 RangeError；钳位到合法范围，让上层按解密失败处理。
+  const safeBytes = Math.max(0, Math.min(sigBytes, words.length * 4));
+  const uint8 = new Uint8Array(safeBytes);
+  for (let i = 0; i < safeBytes; i++) {
     uint8[i] = (words[i >>> 2] >>> (24 - (i % 4) * 8)) & 0xff;
   }
   return uint8;

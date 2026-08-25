@@ -33,7 +33,16 @@ export function withAlpha(hex: string, alpha: number): `rgba(${string})` {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-export type AccentPresetId = 'dynamic';
+export type AccentPresetId =
+  | 'dynamic'
+  | 'pink'
+  | 'blue'
+  | 'green'
+  | 'gold'
+  | 'purple'
+  | 'red'
+  | 'teal'
+  | 'orange';
 
 type AccentOverlay = Pick<
   AppPalette,
@@ -58,9 +67,18 @@ export type AccentPreset = {
 };
 
 export const ACCENT_PRESETS: readonly AccentPreset[] = [
-  // 动态取色（Material You）：读取 Android 12+ 系统壁纸主色，实时注入全局主题。
-  // 此处为壁纸不可用（低版本/无壁纸色）时的回退色。
-  { id: 'dynamic', label: '动态取色', light: '#3D8BFF', dark: '#66A3FF' },
+  // 动态取色（Material You）：读取 Android 12+ 系统壁纸主色 / 当前封面 Palette，
+  // 实时注入全局主题。此处为不可用（低版本/提取失败）时的回退色。
+  { id: 'dynamic', label: '动态', light: '#3D8BFF', dark: '#66A3FF' },
+  // 固定色板：与动态取色并存，随时可切。
+  { id: 'pink', label: '樱粉', light: '#FF5C9E', dark: '#FF7EB6' },
+  { id: 'blue', label: '远峰蓝', light: '#3D8BFF', dark: '#66A3FF' },
+  { id: 'green', label: '松石绿', light: '#2FA36B', dark: '#5BC48E' },
+  { id: 'gold', label: '琥珀金', light: '#D89A1E', dark: '#F0B429' },
+  { id: 'purple', label: '星紫', light: '#8B4FE8', dark: '#A97BF5' },
+  { id: 'red', label: '绯红', light: '#E5484D', dark: '#FF6B6E' },
+  { id: 'teal', label: '湖青', light: '#0E9BA4', dark: '#3FC1C9' },
+  { id: 'orange', label: '落日橙', light: '#F0641E', dark: '#FF8A50' },
 ];
 
 export const DEFAULT_ACCENT_ID: AccentPresetId = 'dynamic';

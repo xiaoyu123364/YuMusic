@@ -22,13 +22,16 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Slider, Text, View, XStack, YStack } from 'tamagui';
+import { Text, View, XStack, YStack } from 'tamagui';
 
 import { Artwork } from '@/components/ui/artwork';
 import { CommentSheet } from '@/components/ui/comment-sheet';
 import { EqualizerPanel } from '@/components/ui/equalizer-panel';import { LyricsView } from '@/components/ui/lyrics-view';
 import { QueueSheet } from '@/components/ui/queue-sheet';
 import { showToast, ToastHost } from '@/components/ui/toast';
+import { StyledSlider } from '@/components/ui/styled-slider';
+import { GlassPanel } from '@/components/ui/glass';
+import { useDesignSpec } from '@/features/theme/design-style';
 import { TrackActionsSheet } from '@/components/ui/track-actions-sheet';
 import { libraryActions, useIsLiked } from '@/features/library/store';
 import { playerActions, usePlayer, usePlayerProgress } from '@/features/player/store';
@@ -88,52 +91,27 @@ function SpinningDisc({ coverUrl, playing, size }: { coverUrl: string | null; pl
 function PlaybackProgress() {
   const palette = usePalette();
   const { positionMs, durationMs } = usePlayerProgress();
+  const { playing } = usePlayer();
   const [dragValue, setDragValue] = useState<number | null>(null);
   const dragValueRef = useRef<number | null>(null);
   const shownPosition = dragValue ?? positionMs;
 
   return (
     <YStack gap={7}>
-      <Slider
-        size="$2"
-        value={[Math.min(shownPosition, Math.max(durationMs, 1))]}
+      <StyledSlider
+        value={shownPosition}
         max={Math.max(durationMs, 1)}
-        step={250}
-        disabled={!durationMs}
-        onValueChange={(values) => {
-          const next = values[0] ?? 0;
+        flowing={playing}
+        onChange={(next) => {
           dragValueRef.current = next;
           setDragValue(next);
         }}
-        onSlideEnd={() => {
-          if (dragValueRef.current !== null) {
-            playerActions.seekToMs(dragValueRef.current);
-          }
+        onCommit={(committed) => {
+          playerActions.seekToMs(committed);
           dragValueRef.current = null;
           setTimeout(() => setDragValue(null), 180);
-        }}>
-        <Slider.Track backgroundColor={palette.cardAlt} height={4} borderRadius={999}>
-          <Slider.TrackActive backgroundColor={palette.accent} />
-        </Slider.Track>
-        <Slider.Thumb
-          index={0}
-          size={16}
-          circular
-          backgroundColor={palette.accent}
-          borderWidth={2.5}
-          borderColor="#FFFFFF"
-          pressStyle={{
-            scale: 1.2,
-            backgroundColor: palette.accentPressed,
-            borderColor: '#FFFFFF',
-          }}
-          hoverStyle={{ backgroundColor: palette.accent, borderColor: '#FFFFFF' }}
-          shadowColor="#000000"
-          shadowOpacity={0.2}
-          shadowRadius={5}
-          shadowOffset={{ width: 0, height: 2 }}
-        />
-      </Slider>
+        }}
+      />
       <XStack justifyContent="space-between">
         <Text color={palette.textTertiary} fontSize={11} fontVariant={['tabular-nums']}>
           {formatClock(shownPosition)}
@@ -146,8 +124,37 @@ function PlaybackProgress() {
   );
 }
 
+/** 音量条：作用于当前音频流（expo-audio volume），材质跟随设计风格。 */
+function VolumeControl() {
+  const palette = usePalette();
+  const [volume, setVolume] = useState(() => playerActions.getVolume());
+
+  function apply(next: number) {
+    setVolume(next);
+    playerActions.setVolume(next);
+  }
+
+  return (
+    <XStack alignItems="center" gap={12} width="100%">
+      <MaterialCommunityIcons
+        name={volume === 0 ? 'volume-off' : volume < 45 ? 'volume-low' : 'volume-high'}
+        size={20}
+        color={palette.textSecondary}
+      />
+      <View flex={1}>
+        <StyledSlider
+          value={volume}
+          max={100}
+          onChange={apply}
+        />
+      </View>
+    </XStack>
+  );
+}
+
 export default function PlayerScreen() {
   const palette = usePalette();
+  const design = useDesignSpec();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
@@ -466,6 +473,8 @@ export default function PlayerScreen() {
 
           <PlaybackProgress />
 
+          <VolumeControl />
+
           <XStack alignItems="center" justifyContent="space-between">
             <XStack
               width={42}
@@ -499,21 +508,39 @@ export default function PlayerScreen() {
               transition="quickest"
               pressStyle={{ scale: 0.94, opacity: 0.9 }}
               onPress={() => playerActions.toggle()}>
-              <LinearGradient
-                colors={[palette.gradientStart, palette.gradientEnd]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFill}
-              />
-              {busy ? (
-                <MaterialLoading size={16} color="#FFFFFF" />
+              {design.controlGlass === 'liquid' ? (
+                <>
+                  <GlassPanel kind={design.controlGlass} radius={37} blurIntensity={60} />
+                  {busy ? (
+                    <MaterialLoading size={16} color={palette.text} />
+                  ) : (
+                    <Ionicons
+                      name={playing ? 'pause' : 'play'}
+                      size={30}
+                      color={palette.text}
+                      style={playing ? undefined : { marginLeft: 3 }}
+                    />
+                  )}
+                </>
               ) : (
-                <Ionicons
-                  name={playing ? 'pause' : 'play'}
-                  size={30}
-                  color="#FFFFFF"
-                  style={playing ? undefined : { marginLeft: 3 }}
-                />
+                <>
+                  <LinearGradient
+                    colors={[palette.gradientStart, palette.gradientEnd]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={StyleSheet.absoluteFill}
+                  />
+                  {busy ? (
+                    <MaterialLoading size={16} color="#FFFFFF" />
+                  ) : (
+                    <Ionicons
+                      name={playing ? 'pause' : 'play'}
+                      size={30}
+                      color="#FFFFFF"
+                      style={playing ? undefined : { marginLeft: 3 }}
+                    />
+                  )}
+                </>
               )}
             </XStack>
 

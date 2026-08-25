@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
-import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
+import { useEffect, useState, type ComponentProps } from 'react';
 import {
   Keyboard,
   Platform,
@@ -9,19 +9,12 @@ import {
   StyleSheet,
   Text as RNText,
   View,
-  findNodeHandle,
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
 
 import { MiniPlayer } from '@/components/ui/mini-player';
-import { BackdropContext, LiquidGlassSurface } from '@/components/ui/liquid-glass';
+import { LiquidGlassBackdrop, LiquidGlassSurface, useBackdropTargetId } from '@/components/ui/liquid-glass';
 import {
   DockGap,
   TabBarBottomInset,
@@ -54,40 +47,23 @@ function FloatingGlassTabBar({
 
   const radius = floatingBar ? 28 : 0;
 
-  // 液态玻璃物理拖拽：水平拖拽带阻尼位移 + 轻微倾斜，松手弹性回弹。
-  const dragX = useSharedValue(0);
-  const panGesture = Gesture.Pan()
-    .activeOffsetX([-8, 8])
-    .onUpdate((event) => {
-      dragX.value = event.translationX * 0.55;
-    })
-    .onEnd(() => {
-      dragX.value = withSpring(0, { damping: 15, stiffness: 200 });
-    });
-  const dragStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: dragX.value },
-      { rotate: `${dragX.value / 60}deg` },
-      { scale: 1 - Math.min(Math.abs(dragX.value) / 600, 0.03) },
-    ],
-  }));
+  // 底部导航栏固定不可拖动（旧版「物理拖拽」手势已移除）：
+  // 可拖动的只有其上方迷你播放条顶缘的进度滑块。
 
   return (
-    <GestureDetector gesture={panGesture}>
-      <Animated.View
-        style={[
-          styles.tabBarWrap,
-          dragStyle,
-          floatingBar
-            ? {
-                left: TabBarSideMargin,
-                right: TabBarSideMargin,
-                bottom: insets.bottom + TabBarBottomInset,
-                borderRadius: radius,
-              }
-            : { left: 0, right: 0, bottom: 0 },
-        ]}
-        pointerEvents="box-none">
+    <View
+      style={[
+        styles.tabBarWrap,
+        floatingBar
+          ? {
+              left: TabBarSideMargin,
+              right: TabBarSideMargin,
+              bottom: insets.bottom + TabBarBottomInset,
+              borderRadius: radius,
+            }
+          : { left: 0, right: 0, bottom: 0 },
+      ]}
+      pointerEvents="box-none">
         <View
           style={[
             styles.card,
@@ -145,8 +121,7 @@ function FloatingGlassTabBar({
           })}
           </View>
         </View>
-      </Animated.View>
-    </GestureDetector>
+    </View>
   );
 }
 
@@ -155,8 +130,7 @@ export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const backdropRef = useRef<View>(null);
-  const [backdropTargetId, setBackdropTargetId] = useState<number | null>(null);
+  const backdropTargetId = useBackdropTargetId();
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -170,35 +144,12 @@ export default function TabsLayout() {
     };
   }, []);
 
-  // 把页面内容容器的 native handle 传给液态玻璃作为采样源（避开玻璃自身，避免递归）。
-  // 关键修复：必须在视图真正挂载并拿到原生节点后才能采样，因此用 onLayout + rAF 兜底重试，
-  // 避免一次性 useEffect 在新架构 / 并发渲染下拿到 null，导致玻璃始终无 backdrop 源而全透明、不可见。
-  const captureBackdrop = useCallback(() => {
-    const id = findNodeHandle(backdropRef.current);
-    if (id != null) {
-      setBackdropTargetId(id);
-      return true;
-    }
-    return false;
-  }, []);
-
-  useEffect(() => {
-    if (captureBackdrop()) return;
-    let raf = 0;
-    const tick = () => {
-      if (captureBackdrop()) return;
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [captureBackdrop]);
-
   const dockWidth = Math.min(width - TabBarSideMargin * 2, 680);
 
   return (
-    <BackdropContext.Provider value={backdropTargetId}>
+    <LiquidGlassBackdrop>
       <View style={styles.root}>
-        <View ref={backdropRef} collapsable={false} style={{ flex: 1 }} onLayout={captureBackdrop}>
+        <View style={{ flex: 1 }}>
           <Tabs
             tabBar={(props) => (
               <FloatingGlassTabBar {...props} backdropTargetId={backdropTargetId} />
@@ -228,7 +179,7 @@ export default function TabsLayout() {
           </View>
         )}
       </View>
-    </BackdropContext.Provider>
+    </LiquidGlassBackdrop>
   );
 }
 

@@ -6,10 +6,27 @@ import { readStoredAppearance, writeStoredAppearance } from './storage';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 
+/** 全局设计风格：苹果液态玻璃 / 安卓 Material Expressive 毛玻璃 / 自定义混搭。 */
+export type DesignStyle = 'apple' | 'material' | 'custom';
+
+/** 控件材质：原生液态玻璃 / BlurView 毛玻璃 / 素面半透明卡片。 */
+export type GlassKind = 'liquid' | 'frost' | 'plain';
+
+/** 滑杆样式：M3E 波浪「毛毛虫」/ 平滑胶囊。 */
+export type SliderLook = 'wavy' | 'smooth';
+
 export type SettingsState = {
   hydrated: boolean;
   themeMode: ThemeMode;
   accentId: AccentPresetId;
+  /** 设计风格（苹果 / 安卓17 / 自定义）。 */
+  designStyle: DesignStyle;
+  /** 自定义：按钮/开关/选项卡等控件材质。 */
+  customControlGlass: GlassKind;
+  /** 自定义：顶栏/底栏/迷你播放器材质。 */
+  customBarGlass: GlassKind;
+  /** 自定义：进度条/音量条样式。 */
+  customSliderLook: SliderLook;
   /** 桌面歌词悬浮窗（Android 需 SYSTEM_ALERT_WINDOW 权限）。 */
   desktopLyrics: boolean;
   /** Monet 动态取色：从主色派生带色调的柔和表面色。 */
@@ -32,6 +49,10 @@ const INITIAL_SETTINGS_STATE: SettingsState = {
   hydrated: false,
   themeMode: 'system',
   accentId: DEFAULT_ACCENT_ID,
+  designStyle: 'apple',
+  customControlGlass: 'liquid',
+  customBarGlass: 'liquid',
+  customSliderLook: 'smooth',
   desktopLyrics: false,
   monetColor: true,
   barBlur: true,
@@ -82,6 +103,18 @@ function isThemeMode(value: unknown): value is ThemeMode {
   return value === 'system' || value === 'light' || value === 'dark';
 }
 
+function isDesignStyle(value: unknown): value is DesignStyle {
+  return value === 'apple' || value === 'material' || value === 'custom';
+}
+
+function isGlassKind(value: unknown): value is GlassKind {
+  return value === 'liquid' || value === 'frost' || value === 'plain';
+}
+
+function isSliderLook(value: unknown): value is SliderLook {
+  return value === 'wavy' || value === 'smooth';
+}
+
 let hydrationPromise: Promise<void> | null = null;
 
 /** 在根布局模块作用域调用一次;UI 由 hydrated 门控,不存在与用户操作的竞态。 */
@@ -92,6 +125,13 @@ export function hydrateSettings(): Promise<void> {
       settingsStore.setState({
         themeMode: stored && isThemeMode(stored.themeMode) ? stored.themeMode : 'system',
         accentId: stored && isAccentPresetId(stored.accentId) ? stored.accentId : DEFAULT_ACCENT_ID,
+        designStyle: stored && isDesignStyle(stored.designStyle) ? stored.designStyle : 'apple',
+        customControlGlass:
+          stored && isGlassKind(stored.customControlGlass) ? stored.customControlGlass : 'liquid',
+        customBarGlass:
+          stored && isGlassKind(stored.customBarGlass) ? stored.customBarGlass : 'liquid',
+        customSliderLook:
+          stored && isSliderLook(stored.customSliderLook) ? stored.customSliderLook : 'smooth',
         desktopLyrics: stored?.desktopLyrics === true,
         monetColor: stored?.monetColor !== false,
         barBlur: stored?.barBlur !== false,
@@ -110,19 +150,22 @@ export function hydrateSettings(): Promise<void> {
 }
 
 function persist() {
-  const { themeMode, accentId, desktopLyrics, monetColor, barBlur, floatingBar, liquidGlass, predictiveBack, lyricOverlayBg, lyricOverlayText } =
-    settingsStore.getState();
+  const s = settingsStore.getState();
   void writeStoredAppearance({
-    themeMode,
-    accentId,
-    desktopLyrics,
-    monetColor,
-    barBlur,
-    floatingBar,
-    liquidGlass,
-    predictiveBack,
-    lyricOverlayBg,
-    lyricOverlayText,
+    themeMode: s.themeMode,
+    accentId: s.accentId,
+    designStyle: s.designStyle,
+    customControlGlass: s.customControlGlass,
+    customBarGlass: s.customBarGlass,
+    customSliderLook: s.customSliderLook,
+    desktopLyrics: s.desktopLyrics,
+    monetColor: s.monetColor,
+    barBlur: s.barBlur,
+    floatingBar: s.floatingBar,
+    liquidGlass: s.liquidGlass,
+    predictiveBack: s.predictiveBack,
+    lyricOverlayBg: s.lyricOverlayBg,
+    lyricOverlayText: s.lyricOverlayText,
   });
 }
 
@@ -133,6 +176,22 @@ export const settingsActions = {
   },
   setAccentId(accentId: AccentPresetId) {
     settingsStore.setState({ accentId });
+    persist();
+  },
+  setDesignStyle(designStyle: DesignStyle) {
+    settingsStore.setState({ designStyle });
+    persist();
+  },
+  setCustomControlGlass(customControlGlass: GlassKind) {
+    settingsStore.setState({ customControlGlass });
+    persist();
+  },
+  setCustomBarGlass(customBarGlass: GlassKind) {
+    settingsStore.setState({ customBarGlass });
+    persist();
+  },
+  setCustomSliderLook(customSliderLook: SliderLook) {
+    settingsStore.setState({ customSliderLook });
     persist();
   },
   setDesktopLyrics(desktopLyrics: boolean) {
@@ -230,5 +289,37 @@ export function useLiquidGlass(): boolean {
     settingsStore.subscribe,
     () => settingsStore.getState().liquidGlass,
     () => INITIAL_SETTINGS_STATE.liquidGlass
+  );
+}
+
+export function useDesignStyle(): DesignStyle {
+  return useSyncExternalStore(
+    settingsStore.subscribe,
+    () => settingsStore.getState().designStyle,
+    () => INITIAL_SETTINGS_STATE.designStyle
+  );
+}
+
+export function useCustomControlGlass(): GlassKind {
+  return useSyncExternalStore(
+    settingsStore.subscribe,
+    () => settingsStore.getState().customControlGlass,
+    () => INITIAL_SETTINGS_STATE.customControlGlass
+  );
+}
+
+export function useCustomBarGlass(): GlassKind {
+  return useSyncExternalStore(
+    settingsStore.subscribe,
+    () => settingsStore.getState().customBarGlass,
+    () => INITIAL_SETTINGS_STATE.customBarGlass
+  );
+}
+
+export function useCustomSliderLook(): SliderLook {
+  return useSyncExternalStore(
+    settingsStore.subscribe,
+    () => settingsStore.getState().customSliderLook,
+    () => INITIAL_SETTINGS_STATE.customSliderLook
   );
 }

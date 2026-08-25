@@ -1,8 +1,10 @@
-import { createContext, memo, useContext, type ComponentType } from 'react';
-import { Platform, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { createContext, memo, useCallback, useContext, useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
+import { Platform, StyleSheet, View, findNodeHandle, type StyleProp, type ViewStyle } from 'react-native';
 
 import { GlassView } from 'expo-glass-effect';
 import { requireNativeViewManager } from 'expo-modules-core';
+
+import { useIsDark } from '@/hooks/use-palette';
 
 /**
  * 跨平台液态玻璃层：
@@ -34,28 +36,93 @@ export function useBackdropTargetId(): number | null {
   return useContext(BackdropContext);
 }
 
+/**
+ * 液态玻璃采样容器：测量自身内容容器的 native handle 并通过 Context 下发。
+ * 任何包含液态玻璃控件的屏幕（Tabs、设置页等）都应包一层，
+ * 否则屏幕外的玻璃控件拿不到采样源而降级成模糊/素面。
+ */
+export function LiquidGlassBackdrop({
+  children,
+  style,
+}: {
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const backdropRef = useRef<View>(null);
+  const [backdropTargetId, setBackdropTargetId] = useState<number | null>(null);
+
+  const captureBackdrop = useCallback(() => {
+    const id = findNodeHandle(backdropRef.current);
+    if (id != null) {
+      setBackdropTargetId(id);
+      return true;
+    }
+    return false;
+  }, []);
+
+  useEffect(() => {
+    if (captureBackdrop()) return;
+    let raf = 0;
+    const tick = () => {
+      if (captureBackdrop()) return;
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [captureBackdrop]);
+
+  return (
+    <BackdropContext.Provider value={backdropTargetId}>
+      <View
+        ref={backdropRef}
+        collapsable={false}
+        style={[{ flex: 1 }, style]}
+        onLayout={captureBackdrop}>
+        {children}
+      </View>
+    </BackdropContext.Provider>
+  );
+}
+
+
 export const LiquidGlassSurface = memo(function LiquidGlassSurface({
   radius = 28,
   backdropTargetId,
   style,
+  /** 折射区高度：大表面（底栏）64；小控件（滑块/选项卡）应收小，否则边缘糊成光环。 */
+  refractionHeight = 64,
+  /** 倒角宽度：大表面 16；小控件建议 4~6。 */
+  bevelWidth = 16,
+  /** 色散强度：小控件减弱，避免小面积上出现彩边脏斑。 */
+  dispersionStrength = 0.12,
+  aberrationIntensity = 2.2,
 }: {
   radius?: number;
   backdropTargetId?: number | null;
   style?: StyleProp<ViewStyle>;
+  refractionHeight?: number;
+  bevelWidth?: number;
+  dispersionStrength?: number;
+  aberrationIntensity?: number;
 }) {
+  const isDark = useIsDark();
+  // 采样为空/透明时的兜底底色（不透明），防止原生层把透明样本画成黑块
+  const fallbackColor = isDark ? 0xff1a1c22 : 0xfff2f4f8;
+
   // Android：自研原生液态玻璃（带折射 / 色散 / 触摸弹性）。
   if (Platform.OS === 'android' && NativeLiquidGlassView) {
     return (
       <NativeLiquidGlassView
         cornerRadius={radius}
-        refractionHeight={64}
-        bevelWidth={16}
-        dispersionStrength={0.12}
+        refractionHeight={refractionHeight}
+        bevelWidth={bevelWidth}
+        dispersionStrength={dispersionStrength}
         saturation={150}
-        aberrationIntensity={2.2}
+        aberrationIntensity={aberrationIntensity}
         elasticity={0.18}
         enableChromaticAberration
         enableEdgeHighlight
+        fallbackColor={fallbackColor}
         backdropTargetId={backdropTargetId}
         pointerEvents="none"
         style={[StyleSheet.absoluteFill, style]}

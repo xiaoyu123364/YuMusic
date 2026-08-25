@@ -53,34 +53,16 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
   private var enablePressEffect = true
   private var enableEdgeHighlight = true
 
-  /** 背后采样源（页面内容容器）。 */
-  private var backdropTarget: View? = null
-
-  // ---- 离屏缓冲（API<31 降级用） ----
-  private var sampleBitmap: Bitmap? = null
-  private var blurredBitmap: Bitmap? = null
-  private val blurPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true }
-
-  // ---- API31+ 硬件模糊用 ----
-  // 以 Any? 存储，避免 minSdk<29 设备加载类时引用 RenderNode 触发 NoClassDefFoundError；
-  // 仅在 API31+ 的 drawBackdropRenderNode 内安全强转为 RenderNode。
-  private var renderNode: Any? = null
-
-  // API33+ 液态玻璃光学着色器（折射 / 色散 / 饱和度提升）。
-  // 以 Any? 存储，仅在 API33+ 方法内强转为 RuntimeShader，规避低版本类加载 NoClassDefFoundError。
-  private var glassShader: Any? = null
-
-  /** 重入保护，防止把玻璃自身作为 backdrop 时递归绘制。 */
-  @Volatile
-  private var isDrawing = false
-
-  init {
-    // 透明背景 + 允许自身绘制
-    setBackgroundColor(Color.TRANSPARENT)
-    setWillNotDraw(false)
-  }
+  /** 采样为空/透明时的兜底底色（由 JS 按主题下发），防止透明样本被着色器画成黑块。 */
+  private var fallbackColor: Int = Color.argb(255, 242, 244, 248)
 
   companion object {
+    /**
+     * 全部存活玻璃表层弱引用：采样 backdrop 时临时隐藏「其它玻璃」，
+     * 避免玻璃采样到玻璃（tint/高光互相叠加）造成逐级发白的反馈。
+     */
+    private val activeGlassViews = java.util.WeakHashMap<LiquidGlassSurfaceView, Boolean>()
+
     /**
      * AGSL（Skia SkSL 方言）液态玻璃光学着色器。
      * 把上游模糊后的 backdrop 当作 `content` 输入，沿圆角矩形的边缘法线做折射偏移
@@ -125,9 +107,48 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
         col.g = content.eval(clamp(base, vec2(0.0), iResolution)).g;
         col.b = content.eval(clamp(base - disp, vec2(0.0), iResolution)).b;
         col = sat(col, iVibrancy);
+        // 沿圆角边缘做微弱暗化（rim darkening），让玻璃呈现"有厚度/内陷"的真实感，
+        // 而不是边缘平整的白块。
+        float rimDark = smoothstep(-band * 0.55, 0.0, d) * 0.14;
+        col *= (1.0 - rimDark);
         return vec4(col, 1.0);
       }
     """
+  }
+
+  /** 背后采样源（页面内容容器）。 */
+  private var backdropTarget: View? = null
+
+  // ---- 离屏缓冲（API<31 降级用） ----
+  private var sampleBitmap: Bitmap? = null
+  private var blurredBitmap: Bitmap? = null
+  private val blurPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true }
+
+  // ---- API31+ 硬件模糊用 ----
+  // 以 Any? 存储，避免 minSdk<29 设备加载类时引用 RenderNode 触发 NoClassDefFoundError；
+  // 仅在 API31+ 的 drawBackdropRenderNode 内安全强转为 RenderNode。
+  private var renderNode: Any? = null
+
+  // API33+ 液态玻璃光学着色器（折射 / 色散 / 饱和度提升）。
+  // 以 Any? 存储，仅在 API33+ 方法内强转为 RuntimeShader，规避低版本类加载 NoClassDefFoundError。
+  private var glassShader: Any? = null
+
+  /** 重入保护，防止把玻璃自身作为 backdrop 时递归绘制。 */
+  @Volatile
+  private var isDrawing = false
+
+  /** 节流：记录上一帧纳秒时间戳，用于把持续重绘限制到 ~30fps。 */
+  private var lastFrameNs: Long = 0L
+
+  init {
+    // 透明背景 + 允许自身绘制
+    setBackgroundColor(Color.TRANSPARENT)
+    setWillNotDraw(false)
+  }
+
+  override fun onAttachedToWindow() {
+    super.onAttachedToWindow()
+    synchronized(activeGlassViews) { activeGlassViews[this] = true }
   }
 
   /**
@@ -222,6 +243,11 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
     invalidate()
   }
 
+  fun setFallbackColor(value: Int) {
+    fallbackColor = value
+    invalidate()
+  }
+
   // ---------- 绘制 ----------
 
   override fun onDraw(canvas: Canvas) {
@@ -265,9 +291,19 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
     drawGlassOverlay(canvas, w, h)
     canvas.restore()
 
-    // 动态采样：绑定了 backdrop 就持续重绘，使玻璃随内容滚动刷新
+    // 动态采样：绑定了 backdrop 就持续重绘，使玻璃随内容滚动刷新。
+    // 性能节流：节流到 ~30fps（每 33ms 一帧），避免每帧都重做软件 backdrop 采样与
+    // RenderEffect 链 → GPU/CPU 压力大幅下降，视觉滚动刷新率仍然足够流畅。
     if (backdropTarget != null) {
-      postInvalidateOnAnimation()
+      val now = System.nanoTime()
+      val frameNs = 33_000_000L
+      val elapsed = now - lastFrameNs
+      if (elapsed >= frameNs) {
+        lastFrameNs = now
+        postInvalidateOnAnimation()
+      } else {
+        postInvalidateDelayed((frameNs - elapsed) / 1_000_000L)
+      }
     }
   }
 
@@ -312,17 +348,36 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
       sampleBitmap = sample
     }
 
-    // 软件离屏采样：绝不对 backdrop 调用硬件录制，避免 RenderNode 重入崩溃
+    // 软件离屏采样：绝不对 backdrop 调用硬件录制，避免 RenderNode 重入崩溃。
+    // 先铺不透明兜底底色：透明样本经 AGSL/模糊会变成黑块（RGB=0），
+    // 铺底后即使 backdrop 绘制失败也只会是主题底色而非黑色。
     val sCanvas = Canvas(sample)
     sCanvas.setMatrix(Matrix())
-    sCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
+    sample.eraseColor(fallbackColor)
     sCanvas.translate(dx * scale, dy * scale)
     sCanvas.scale(scale, scale)
+
+    // 采样期间临时隐藏其它玻璃表层，避免「玻璃采样到玻璃」逐级叠白
+    val hiddenGlass = mutableListOf<Pair<LiquidGlassSurfaceView, Int>>()
+    synchronized(activeGlassViews) {
+      for (glass in activeGlassViews.keys) {
+        if (glass === this || !glass.isAttachedToWindow) continue
+        val visibility = glass.visibility
+        if (visibility == VISIBLE) {
+          hiddenGlass.add(glass to visibility)
+          glass.visibility = INVISIBLE
+        }
+      }
+    }
     try {
       backdrop.draw(sCanvas)
     } catch (e: Exception) {
-      // 极少数子视图（视频/地图等）在软件画布下绘制可能抛错，降级为兜底冷白
-      sample.eraseColor(Color.argb(28, 255, 255, 255))
+      // 极少数子视图（视频/地图等）在软件画布下绘制可能抛错，降级为兜底底色
+      sample.eraseColor(fallbackColor)
+    } finally {
+      for ((glass, visibility) in hiddenGlass) {
+        glass.visibility = visibility
+      }
     }
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -404,9 +459,9 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
     n.setRenderEffect(null)
   }
 
-  /** 玻璃质感：冷白磨砂填充 + 沿圆角描边的浅色高光。 */
+  /** 玻璃质感：冷白磨砂填充 + 沿圆角描边的浅色高光（整体克制，避免奶白糊感）。 */
   private fun drawGlassOverlay(canvas: Canvas, w: Float, h: Float) {
-    val tintAlpha = (saturation / 150f * 42f).toInt().coerceIn(8, 70)
+    val tintAlpha = (saturation / 150f * 20f).toInt().coerceIn(6, 36)
     val tintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
       style = Paint.Style.FILL
       color = Color.argb(tintAlpha, 245, 248, 255) // 冷白 tint
@@ -423,9 +478,9 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
         shader = LinearGradient(
           0f, 0f, 0f, h,
           intArrayOf(
-            Color.argb(170, 255, 255, 255),
-            Color.argb(45, 255, 255, 255),
-            Color.argb(110, 255, 255, 255)
+            Color.argb(120, 255, 255, 255),
+            Color.argb(28, 255, 255, 255),
+            Color.argb(72, 255, 255, 255)
           ),
           null,
           Shader.TileMode.CLAMP
@@ -442,7 +497,7 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
       style = Paint.Style.FILL
       shader = LinearGradient(
         0f, 0f, 0f, (h * 0.18f).coerceAtLeast(8f),
-        intArrayOf(Color.argb(60, 255, 255, 255), Color.argb(0, 255, 255, 255)),
+        intArrayOf(Color.argb(30, 255, 255, 255), Color.argb(0, 255, 255, 255)),
         null,
         Shader.TileMode.CLAMP
       )
@@ -541,6 +596,7 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
 
   override fun onDetachedFromWindow() {
     super.onDetachedFromWindow()
+    synchronized(activeGlassViews) { activeGlassViews.remove(this) }
     sampleBitmap?.recycle()
     sampleBitmap = null
     blurredBitmap?.recycle()

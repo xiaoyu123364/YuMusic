@@ -44,9 +44,14 @@ class ExpoMoekoeNativeModule : Module() {
   private var visualizer: Visualizer? = null
   private var playbackReceiver: BroadcastReceiver? = null
 
+  // 播控事件去重：记录每个 action 最近一次到达时间，
+  // 防止部分 OEM（MIUI 等）小组件对同一点击重复派发导致连跳两首/状态回跳。
+  private val lastPlaybackEventAt = HashMap<String, Long>()
+
   companion object {
-    /** PlaybackService 的 MediaSession 回调直接调用此 sink，避免依赖广播链路。 */
+    /** 播控事件统一走广播单通道，此 sink 已废弃保留占位，禁止再挂双通道。 */
     @Volatile
+    @Deprecated("单一广播通道即可，勿再使用")
     var playbackEventSink: ((String) -> Unit)? = null
   }
 
@@ -57,10 +62,6 @@ class ExpoMoekoeNativeModule : Module() {
 
     OnCreate {
       emit = { name, params -> sendEvent(name, params ?: emptyMap()) }
-      playbackEventSink = { event ->
-        Log.d("MediaSession", "sink 收到: $event")
-        emit?.invoke(event, null)
-      }
       registerPlaybackReceiver()
     }
 
@@ -91,6 +92,7 @@ class ExpoMoekoeNativeModule : Module() {
       Prop("enablePressEffect") { view: LiquidGlassSurfaceView, value: Boolean -> view.setEnablePressEffect(value) }
       Prop("enableChromaticAberration") { view: LiquidGlassSurfaceView, value: Boolean -> view.setEnableChromaticAberration(value) }
       Prop("enableEdgeHighlight") { view: LiquidGlassSurfaceView, value: Boolean -> view.setEnableEdgeHighlight(value) }
+      Prop("fallbackColor") { view: LiquidGlassSurfaceView, value: Int -> view.setFallbackColor(value) }
       // 采样源：传页面内容容器的 node handle，绑定为背景采样源，避免自采样递归。
       Prop("backdropTargetId") { view: LiquidGlassSurfaceView, id: Int ->
         val target = appContext.findView<android.view.View>(id)
@@ -428,8 +430,17 @@ class ExpoMoekoeNativeModule : Module() {
     val context = appContext.reactContext ?: return
     val receiver = object : BroadcastReceiver() {
       override fun onReceive(context: Context?, intent: Intent?) {
-        Log.d("MediaSession", "收到播控事件: ${intent?.action}")
-        when (intent?.action) {
+        val action = intent?.action ?: return
+        // 同一事件 250ms 内只透传一次（去重兜底，正常链路本就只会到达一次）。
+        val now = android.os.SystemClock.elapsedRealtime()
+        val last = lastPlaybackEventAt[action] ?: 0L
+        if (now - last < 250L) {
+          Log.d("MediaSession", "去重丢弃重复播控事件: $action")
+          return
+        }
+        lastPlaybackEventAt[action] = now
+        Log.d("MediaSession", "收到播控事件: $action")
+        when (action) {
           PlaybackService.EVENT_NEXT -> emit?.invoke("onNext", null)
           PlaybackService.EVENT_PREVIOUS -> emit?.invoke("onPrevious", null)
           PlaybackService.EVENT_PLAY_PAUSE -> emit?.invoke("onPlayPause", null)

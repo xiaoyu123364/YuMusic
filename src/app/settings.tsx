@@ -15,6 +15,7 @@ import { Text, View, XStack, YStack } from 'tamagui';
 import { SectionHeader } from '@/components/ui/section-header';
 import { EqualizerPanel } from '@/components/ui/equalizer-panel';
 import { SegmentedControl } from '@/components/ui/segmented-control';
+import { LiquidGlassBackdrop } from '@/components/ui/liquid-glass';
 import { showToast } from '@/components/ui/toast';
 import { ACCENT_PRESETS, getPalette, type AccentPreset } from '@/constants/accents';
 import { MaxContentWidth, type SchemeName } from '@/constants/theme';
@@ -22,7 +23,14 @@ import { ensureOverlayPermission } from '@/features/android/floating-lyrics';
 import { isNativeAvailable } from '@/features/android/native';
 import { isLoggedIn } from '@/features/account/user-api';
 import { libraryActions } from '@/features/library/store';
-import { settingsActions, useSettings, type ThemeMode } from '@/features/settings/store';
+import {
+  settingsActions,
+  useSettings,
+  type DesignStyle,
+  type GlassKind,
+  type SliderLook,
+  type ThemeMode,
+} from '@/features/settings/store';
 import { useEffectiveScheme, usePalette } from '@/hooks/use-palette';
 import { clearApiSession } from '@/lib/kugou-api';
 
@@ -31,6 +39,23 @@ const THEME_MODE_OPTIONS = [
   { value: 'light', label: '浅色' },
   { value: 'dark', label: '深色' },
 ] as const satisfies readonly { value: ThemeMode; label: string }[];
+
+const DESIGN_STYLE_OPTIONS = [
+  { value: 'apple', label: '苹果' },
+  { value: 'material', label: '安卓17' },
+  { value: 'custom', label: '自定义' },
+] as const satisfies readonly { value: DesignStyle; label: string }[];
+
+const GLASS_KIND_OPTIONS = [
+  { value: 'liquid', label: '液态玻璃' },
+  { value: 'frost', label: '毛玻璃' },
+  { value: 'plain', label: '素面' },
+] as const satisfies readonly { value: GlassKind; label: string }[];
+
+const SLIDER_LOOK_OPTIONS = [
+  { value: 'wavy', label: '毛毛虫波浪' },
+  { value: 'smooth', label: '平滑胶囊' },
+] as const satisfies readonly { value: SliderLook; label: string }[];
 
 const REPO_URL = 'https://github.com/MoeKoeMusic/MoeKoeMusic-Mobile';
 const WEBSITE_URL = 'https://music.moekoe.cn';
@@ -255,6 +280,10 @@ export default function SettingsScreen() {
   const {
     themeMode,
     accentId,
+    designStyle,
+    customControlGlass,
+    customBarGlass,
+    customSliderLook,
     desktopLyrics,
     monetColor,
     barBlur,
@@ -308,10 +337,11 @@ export default function SettingsScreen() {
   }
 
   return (
-    <View flex={1} backgroundColor={palette.background}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
+    <LiquidGlassBackdrop>
+      <View flex={1} backgroundColor={palette.background}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
         <YStack
           alignSelf="center"
           width="100%"
@@ -357,6 +387,48 @@ export default function SettingsScreen() {
                   value={themeMode}
                   onChange={settingsActions.setThemeMode}
                 />
+              </YStack>
+              <View height={StyleSheet.hairlineWidth} backgroundColor={palette.border} />
+              <YStack gap={10}>
+                <Text color={palette.textSecondary} fontSize={13} fontWeight="600">
+                  设计风格
+                </Text>
+                <SegmentedControl
+                  options={DESIGN_STYLE_OPTIONS}
+                  value={designStyle}
+                  onChange={settingsActions.setDesignStyle}
+                />
+                {designStyle === 'custom' ? (
+                  <YStack gap={10} marginTop={2}>
+                    <Text color={palette.textTertiary} fontSize={12} lineHeight={17}>
+                      自定义混搭：分别选择控件、底栏材质与滑杆形态。
+                    </Text>
+                    <Text color={palette.textTertiary} fontSize={12} fontWeight="600">
+                      控件（按钮 / 选项卡 / 开关）
+                    </Text>
+                    <SegmentedControl
+                      options={GLASS_KIND_OPTIONS}
+                      value={customControlGlass}
+                      onChange={settingsActions.setCustomControlGlass}
+                    />
+                    <Text color={palette.textTertiary} fontSize={12} fontWeight="600">
+                      底栏（迷你播放器 / 顶栏）
+                    </Text>
+                    <SegmentedControl
+                      options={GLASS_KIND_OPTIONS}
+                      value={customBarGlass}
+                      onChange={settingsActions.setCustomBarGlass}
+                    />
+                    <Text color={palette.textTertiary} fontSize={12} fontWeight="600">
+                      滑杆（进度条 / 音量条）
+                    </Text>
+                    <SegmentedControl
+                      options={SLIDER_LOOK_OPTIONS}
+                      value={customSliderLook}
+                      onChange={settingsActions.setCustomSliderLook}
+                    />
+                  </YStack>
+                ) : null}
               </YStack>
               <View height={StyleSheet.hairlineWidth} backgroundColor={palette.border} />
               <YStack gap={12}>
@@ -580,7 +652,8 @@ export default function SettingsScreen() {
           </Pressable>
         </Pressable>
       </Modal>
-    </View>
+      </View>
+    </LiquidGlassBackdrop>
   );
 }
 

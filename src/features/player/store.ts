@@ -91,6 +91,8 @@ let failStreak = 0;
 let advanceTimer: ReturnType<typeof setTimeout> | null = null;
 // 每次“建立新队列”都会自增；后台补齐歌单剩余曲目时靠它判断队列是否已被替换。
 let queueGeneration = 0;
+// 播放器音量（0-1，作用于当前音频流，独立于系统媒体音量）。
+let volumeLevel = 1;
 
 function ensureAudioPlayer(): AudioPlayer {
   if (audioPlayer) {
@@ -98,6 +100,7 @@ function ensureAudioPlayer(): AudioPlayer {
   }
 
   audioPlayer = createAudioPlayer(null, { updateInterval: 500 });
+  audioPlayer.volume = volumeLevel;
   audioPlayer.addListener('playbackStatusUpdate', handlePlaybackStatus);
   void setAudioModeAsync({
     playsInSilentMode: true,
@@ -393,6 +396,19 @@ export const playerActions = {
 
   previous() {
     void skip(-1);
+  },
+
+  /** 设置播放器音量（0-100），作用于当前音频流。 */
+  setVolume(percent: number) {
+    volumeLevel = Math.min(Math.max(percent, 0), 100) / 100;
+    if (audioPlayer) {
+      audioPlayer.volume = volumeLevel;
+    }
+    return Math.round(volumeLevel * 100);
+  },
+
+  getVolume(): number {
+    return Math.round(volumeLevel * 100);
   },
 
   seekToMs(positionMs: number) {
