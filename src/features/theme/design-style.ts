@@ -37,7 +37,15 @@ export function resolveDesignSpec(
 ): DesignSpec {
   const liquidReady = isNativeAvailable() && liquidEnabled;
   if (style === 'material') {
-    return { controlGlass: 'frost', barGlass: 'frost', wavySlider: true, liquidReady };
+    // M3 Expressive 本意是毛玻璃，但 Android 端 expo-blur 默认没有真实模糊
+    // （只有一层半透明色调，观感是「一块灰」）。原生液态玻璃可用时直接用
+    // KSU 风格玻璃，不可用才退回 BlurView 毛玻璃。
+    return {
+      controlGlass: liquidReady ? 'liquid' : 'frost',
+      barGlass: liquidReady ? 'liquid' : 'frost',
+      wavySlider: true,
+      liquidReady,
+    };
   }
   if (style === 'custom') {
     return {

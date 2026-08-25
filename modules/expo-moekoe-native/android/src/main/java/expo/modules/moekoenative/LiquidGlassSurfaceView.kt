@@ -144,6 +144,15 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
   @Volatile
   private var isDrawing = false
 
+  /**
+   * 采样抑制标志：其它玻璃采样 backdrop 时把本玻璃置为 suppressed，onDraw 直接跳过。
+   * **绝不改用 visibility=INVISIBLE**——visibility 切换会触发 invalidate 风暴
+   * （A 采样隐藏 B → B 失效重绘 → B 采样又隐藏 A → …），正是页面切换动画期间
+   * 「一直闪到动画结束」的元凶。
+   */
+  @Volatile
+  internal var suppressed = false
+
   /** 节流：记录上一帧纳秒时间戳，用于把持续重绘限制到 ~30fps。 */
   private var lastFrameNs: Long = 0L
 
@@ -156,9 +165,9 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
   override fun onAttachedToWindow() {
     super.onAttachedToWindow()
     synchronized(activeGlassViews) { activeGlassViews[this] = true }
-    // 兜底：JS 侧 backdropTargetId 在新架构下可能解析失败（findView 返回 null），
-    // 此时玻璃会退化成 alpha≈28 的隐形兜底——正是「无任何玻璃痕迹」的根因。
-    // 这里自动绑定 Activity decorView，保证玻璃永远有真实背景可采样。
+    // 兜底：JS 侧 backdropTargetId 在新架构下可能解析失败（findView 返回 null）。
+    // 优先绑定内容锚点（BackdropAnchorView 注册表，由 LiquidGlassBackdrop 在页面内容
+    // 容器内挂载原生锚点视图自注册，绕开跨架构 tag 查找），拿不到再退 decorView。
     if (!explicitBackdrop) {
       post { maybeAutoBindFallbackBackdrop() }
     }
@@ -166,6 +175,12 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
 
   private fun maybeAutoBindFallbackBackdrop() {
     if (explicitBackdrop || backdropTarget != null || !isAttachedToWindow) return
+    val anchor = GlassBackdropRegistry.current()
+    if (anchor != null && anchor !== this) {
+      backdropTarget = anchor
+      invalidate()
+      return
+    }
     var c: Context? = context
     var hops = 0
     while (c != null && hops < 8) {
@@ -291,7 +306,7 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
   // ---------- 绘制 ----------
 
   override fun onDraw(canvas: Canvas) {
-    if (isDrawing) return
+    if (isDrawing || suppressed) return
     isDrawing = true
     try {
       drawGlass(canvas)
@@ -386,37 +401,37 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
       sample?.recycle()
       sample = Bitmap.createBitmap(sw, sh, Bitmap.Config.ARGB_8888)
       sampleBitmap = sample
+      // 仅在新建缓冲时铺一次兜底底色；之后保留上一帧内容——
+      // 采样偶发失败时沿用上一帧好样本，绝不擦成纯色（那会造成「闪到纯色」）。
+      sample.eraseColor(fallbackColor)
     }
 
     // 软件离屏采样：绝不对 backdrop 调用硬件录制，避免 RenderNode 重入崩溃。
-    // 先铺不透明兜底底色：透明样本经 AGSL/模糊会变成黑块（RGB=0），
-    // 铺底后即使 backdrop 绘制失败也只会是主题底色而非黑色。
     val sCanvas = Canvas(sample)
     sCanvas.setMatrix(Matrix())
-    sample.eraseColor(fallbackColor)
     sCanvas.translate(dx * scale, dy * scale)
     sCanvas.scale(scale, scale)
 
-    // 采样期间临时隐藏其它玻璃表层，避免「玻璃采样到玻璃」逐级叠白
-    val hiddenGlass = mutableListOf<Pair<LiquidGlassSurfaceView, Int>>()
+    // 采样期间抑制其它玻璃表层绘制（静默标志，不改 visibility，避免 invalidate 风暴），
+    // 避免「玻璃采样到玻璃」逐级叠白。
     synchronized(activeGlassViews) {
       for (glass in activeGlassViews.keys) {
-        if (glass === this || !glass.isAttachedToWindow) continue
-        val visibility = glass.visibility
-        if (visibility == VISIBLE) {
-          hiddenGlass.add(glass to visibility)
-          glass.visibility = INVISIBLE
+        if (glass !== this && glass.isAttachedToWindow) {
+          glass.suppressed = true
         }
       }
     }
     try {
       backdrop.draw(sCanvas)
-    } catch (e: Exception) {
-      // 极少数子视图（视频/地图等）在软件画布下绘制可能抛错，降级为兜底底色
-      sample.eraseColor(fallbackColor)
+    } catch (_: Exception) {
+      // 极少数子视图（视频/地图等）在软件画布下绘制可能抛错：
+      // 保留上一帧样本（可能是半新内容），绝不擦成纯色兜底——
+      // 旧实现在这里擦 fallbackColor，动画期间偶发失败就会闪成一块纯色。
     } finally {
-      for ((glass, visibility) in hiddenGlass) {
-        glass.visibility = visibility
+      synchronized(activeGlassViews) {
+        for (glass in activeGlassViews.keys) {
+          glass.suppressed = false
+        }
       }
     }
 

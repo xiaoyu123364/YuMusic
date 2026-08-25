@@ -39,10 +39,17 @@ function parseColorToInt(color: string): number | null {
  * 未注册而渲染崩溃（iOS 不存在 ExpoMoekoeNative 的 LiquidGlassSurfaceView）。
  */
 let NativeLiquidGlassView: ComponentType<Record<string, unknown>> | null = null;
+let NativeBackdropAnchor: ComponentType<Record<string, unknown>> | null = null;
 if (Platform.OS === 'android') {
   NativeLiquidGlassView = requireNativeViewManager(
     'ExpoMoekoeNative',
     'LiquidGlassSurfaceView'
+  ) as ComponentType<Record<string, unknown>>;
+  // 页面内容锚点：挂在内容容器内的零视觉原生 View，attach 时自注册进
+  // GlassBackdropRegistry，让玻璃绕开新架构 tag 查找直接拿到采样源。
+  NativeBackdropAnchor = requireNativeViewManager(
+    'ExpoMoekoeNative',
+    'LiquidGlassBackdropAnchor'
   ) as ComponentType<Record<string, unknown>>;
 }
 
@@ -96,6 +103,13 @@ export function LiquidGlassBackdrop({
         collapsable={false}
         style={[{ flex: 1 }, style]}
         onLayout={captureBackdrop}>
+        {NativeBackdropAnchor ? (
+          <NativeBackdropAnchor
+            pointerEvents="none"
+            collapsable={false}
+            style={StyleSheet.absoluteFill}
+          />
+        ) : null}
         {children}
       </View>
     </BackdropContext.Provider>

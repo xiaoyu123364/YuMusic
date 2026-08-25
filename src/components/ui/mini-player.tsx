@@ -26,21 +26,20 @@ import { MaterialLoading } from '@/components/ui/loading';
 
 export const MINI_PLAYER_HEIGHT = 58;
 
-// 进度滑轨横向内缩：左 = 10(边距)+42(封面)+10(间距)，右 = 10+34(下一首)+10+36(播放)+10。
-// 保证轨道线与玻璃滑钮永远不会压到圆形封面（椭圆头穿模修复）。
-const RAIL_INSET_LEFT = 62;
-const RAIL_INSET_RIGHT = 100;
+// 进度线横向内缩：完全位于胶囊内部（圆角 28，顶部 y≈6 处圆角水平边界 ≈11px），
+// 左右各留 20px 安全边距，绝不压到封面/按钮，也绝不再悬在迷你条外面。
+const RAIL_INSET = 20;
 
 let lastOpenPlayerAt = 0;
 
 const SEEK_SPRING = { damping: 24, stiffness: 300 };
 
 /**
- * 迷你条顶缘的可拖动进度滑块（Apple Music 风）：
- * 命中区域高（28px），视觉为细轨道 + 液态玻璃小滑钮；
- * 按住时滑钮放大、可横向拖拽预览，松手 seek 提交。
+ * 迷你条「内部」顶缘的可拖动进度线（Apple Music 风）：
+ * 细轨道 + 圆角方形玻璃小滑钮（可拖动的方块），全部位于胶囊内部——
+ * 不再作为独立元素悬在迷你条上方（那看起来像放错位置的音量条）。
  */
-function DraggableProgressRail() {
+function InternalProgressRail() {
   const palette = usePalette();
   const isDark = useIsDark();
   const design = useDesignSpec();
@@ -88,7 +87,7 @@ function DraggableProgressRail() {
   const knobStyle = useAnimatedStyle(() => ({
     transform: [
       { translateX: knobX.value },
-      { scale: withSpring(pressed.value ? 1.4 : 1, SEEK_SPRING) },
+      { scale: withSpring(pressed.value ? 1.35 : 1, SEEK_SPRING) },
     ],
   }));
 
@@ -100,23 +99,23 @@ function DraggableProgressRail() {
     <GestureDetector gesture={pan}>
       <View
         position="absolute"
-        left={RAIL_INSET_LEFT}
-        right={RAIL_INSET_RIGHT}
-        top={-7}
-        height={28}
+        left={RAIL_INSET}
+        right={RAIL_INSET}
+        top={0}
+        height={24}
         zIndex={10}
         onLayout={(event) => {
           width.value = event.nativeEvent.layout.width;
         }}>
-        {/* 视觉层：细轨道，中心与迷你条顶缘平齐（3px 细线，弱化「独立音量条」感） */}
+        {/* 细轨道：y=5..7.5，中心 y≈6.25 */}
         <View
           position="absolute"
           left={0}
           right={0}
-          top={12.5}
-          height={3}
+          top={5}
+          height={2.5}
           borderRadius={999}
-          backgroundColor={isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.10)'}
+          backgroundColor={isDark ? 'rgba(255,255,255,0.20)' : 'rgba(0,0,0,0.12)'}
           overflow="visible">
           <Animated.View
             style={[
@@ -132,18 +131,18 @@ function DraggableProgressRail() {
             ]}
           />
         </View>
-        {/* 液态玻璃小滑钮（14px，贴线居中：轨道中心 y=14 → top=7） */}
+        {/* 可拖动的圆角方形玻璃滑钮（12×12，中心与轨道对齐 y=6，全在胶囊内部不被裁剪） */}
         <Animated.View
           style={[
             {
               position: 'absolute',
-              left: -7,
-              top: 7,
-              width: 14,
-              height: 14,
-              borderRadius: 7,
+              left: -6,
+              top: 0,
+              width: 12,
+              height: 12,
+              borderRadius: 4,
               overflow: 'hidden',
-              backgroundColor: isDark ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.65)',
+              backgroundColor: isDark ? 'rgba(255,255,255,0.30)' : 'rgba(255,255,255,0.70)',
               borderWidth: StyleSheet.hairlineWidth,
               borderColor: isDark ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.95)',
               shadowColor: '#000000',
@@ -154,7 +153,7 @@ function DraggableProgressRail() {
             },
             knobStyle,
           ]}>
-          <GlassPanel kind={design.barGlass} variant="control" radius={7} blurIntensity={60} />
+          <GlassPanel kind={design.barGlass} variant="control" radius={4} blurIntensity={60} />
         </Animated.View>
       </View>
     </GestureDetector>
@@ -222,6 +221,9 @@ export function MiniPlayer() {
         onPress={openPlayer}>
         <GlassPanel kind={design.barGlass} radius={28} blurIntensity={72} />
 
+        {/* 进度线在胶囊「内部」顶缘（放在 GlassPanel 之后保证不被背景盖住） */}
+        <InternalProgressRail />
+
         <Animated.View style={[{ width: 42, height: 42 }, spinStyle]}>
           <Artwork uri={track.coverUrl} size={42} circle />
         </Animated.View>
@@ -274,9 +276,6 @@ export function MiniPlayer() {
           <Ionicons name="play-skip-forward" size={19} color={palette.textSecondary} />
         </XStack>
       </XStack>
-
-      {/* 进度滑轨独立于玻璃条本体（否则会被 overflow:hidden 裁掉顶缘滑钮） */}
-      <DraggableProgressRail />
     </Animated.View>
   );
 }

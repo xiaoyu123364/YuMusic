@@ -70,7 +70,9 @@ function FloatingGlassTabBar({
             {
               height: TabBarHeight,
               borderRadius: radius,
-              backgroundColor: palette.barSurface,
+              // 液态玻璃模式下卡片自身必须透明：底色会污染玻璃的背景采样，
+              // 并与玻璃 tint 叠加成「白色一条」。表面色由玻璃 tint 提供（KSU 配方）。
+              backgroundColor: liquidGlass ? 'transparent' : palette.barSurface,
               borderColor: liquidGlass ? palette.barBorder : palette.border,
             },
           ]}>

@@ -76,6 +76,12 @@ class ExpoMoekoeNativeModule : Module() {
 
     // ---------- 原生液态玻璃 View（Liquid-Glass-Android） ----------
 
+    // 页面内容锚点：挂在 LiquidGlassBackdrop 内容容器内，attach 时自注册进
+    // GlassBackdropRegistry，供玻璃视图绕开新架构 tag 查找直接拿到采样源。
+    View(BackdropAnchorView::class) {
+      Name("LiquidGlassBackdropAnchor")
+    }
+
     View(LiquidGlassSurfaceView::class) {
       Name("LiquidGlassSurfaceView")
       Prop("cornerRadius") { view: LiquidGlassSurfaceView, value: Float -> view.setCornerRadius(value) }
