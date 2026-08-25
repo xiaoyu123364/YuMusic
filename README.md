@@ -138,7 +138,8 @@ eas build --profile production --platform android
 
 ## 🤝 致谢
 
-本项目基于 [MoeKoeMusic](https://github.com/iAJue/MoeKoeMusic)（桌面版）二次开发，感谢原作者 [iAJue](https://github.com/iAJue)；数据接口来自 [KuGouMusicApi](https://github.com/MakcRe/KuGouMusicApi)。
+本项目基于 [MoeKoeMusic](https://github.com/iAJue/MoeKoeMusic)（桌面版）与[MoeKoeMusic-Mobile](https://github.com/MoeKoeMusic/MoeKoeMusic-Mobile)（手机版）二次开发，感谢原作者 [iAJue](https://github.com/iAJue)；数据接口来自 [KuGouMusicApi](https://github.com/MakcRe/KuGouMusicApi)。
+剩余代码为deepseek V4pro开发
 
 ## 💬 贡献
 
