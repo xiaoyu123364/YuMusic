@@ -74,7 +74,7 @@ function FloatingGlassTabBar({
               borderColor: liquidGlass ? palette.barBorder : palette.border,
             },
           ]}>
-          {liquidGlass && backdropTargetId != null ? (
+          {liquidGlass ? (
             <LiquidGlassSurface radius={radius} backdropTargetId={backdropTargetId} />
           ) : (
             <BlurView

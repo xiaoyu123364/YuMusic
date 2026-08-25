@@ -53,6 +53,13 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
   private var enablePressEffect = true
   private var enableEdgeHighlight = true
 
+  /** KSU 风格表面重着色：tint 色（RGB）+ alpha（0..1）。alpha < 0 时回退旧 saturation 推导。 */
+  private var surfaceTintColor: Int = 0xFFF5F8FF.toInt()
+  private var surfaceTintAlpha: Float = -1f
+
+  /** JS 是否成功下发了显式 backdrop（区别于自动兜底绑定）。 */
+  private var explicitBackdrop = false
+
   /** 采样为空/透明时的兜底底色（由 JS 按主题下发），防止透明样本被着色器画成黑块。 */
   private var fallbackColor: Int = Color.argb(255, 242, 244, 248)
 
@@ -149,6 +156,27 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
   override fun onAttachedToWindow() {
     super.onAttachedToWindow()
     synchronized(activeGlassViews) { activeGlassViews[this] = true }
+    // 兜底：JS 侧 backdropTargetId 在新架构下可能解析失败（findView 返回 null），
+    // 此时玻璃会退化成 alpha≈28 的隐形兜底——正是「无任何玻璃痕迹」的根因。
+    // 这里自动绑定 Activity decorView，保证玻璃永远有真实背景可采样。
+    if (!explicitBackdrop) {
+      post { maybeAutoBindFallbackBackdrop() }
+    }
+  }
+
+  private fun maybeAutoBindFallbackBackdrop() {
+    if (explicitBackdrop || backdropTarget != null || !isAttachedToWindow) return
+    var c: Context? = context
+    var hops = 0
+    while (c != null && hops < 8) {
+      if (c is android.app.Activity) {
+        backdropTarget = c.window.decorView
+        invalidate()
+        return
+      }
+      c = (c as? android.content.ContextWrapper)?.baseContext
+      hops++
+    }
   }
 
   /**
@@ -166,6 +194,7 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
     if (target == this) {
       return
     }
+    explicitBackdrop = true
     backdropTarget = target
     invalidate()
   }
@@ -245,6 +274,17 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
 
   fun setFallbackColor(value: Int) {
     fallbackColor = value
+    invalidate()
+  }
+
+  /** KSU 风格：表面用主题色重着色（对应 miuix BlurExt 的 surface.copy(alpha) 混合）。 */
+  fun setSurfaceTintColor(value: Int) {
+    surfaceTintColor = value
+    invalidate()
+  }
+
+  fun setSurfaceTintAlpha(value: Float) {
+    surfaceTintAlpha = value
     invalidate()
   }
 
@@ -459,12 +499,23 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
     n.setRenderEffect(null)
   }
 
-  /** 玻璃质感：冷白磨砂填充 + 沿圆角描边的浅色高光（整体克制，避免奶白糊感）。 */
+  /** 玻璃质感：主题色磨砂填充（KSU 配方）+ 沿圆角描边的浅色高光。 */
   private fun drawGlassOverlay(canvas: Canvas, w: Float, h: Float) {
-    val tintAlpha = (saturation / 150f * 20f).toInt().coerceIn(6, 36)
+    // KSU 式重着色：surfaceTintAlpha 由 JS 按主题下发（暗色 ~0.60 / 亮色 ~0.70）；
+    // 未下发（<0）时回退旧逻辑（saturation 推导的极淡冷白）。
+    val resolvedAlpha = if (surfaceTintAlpha >= 0f) {
+      (surfaceTintAlpha.coerceIn(0f, 1f) * 255f).toInt().coerceIn(0, 255)
+    } else {
+      (saturation / 150f * 20f).toInt().coerceIn(6, 36)
+    }
     val tintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
       style = Paint.Style.FILL
-      color = Color.argb(tintAlpha, 245, 248, 255) // 冷白 tint
+      color = Color.argb(
+        resolvedAlpha,
+        (surfaceTintColor shr 16) and 0xff,
+        (surfaceTintColor shr 8) and 0xff,
+        surfaceTintColor and 0xff
+      )
     }
     canvas.drawRect(0f, 0f, w, h, tintPaint)
 

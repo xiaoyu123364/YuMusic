@@ -4,7 +4,25 @@ import { Platform, StyleSheet, View, findNodeHandle, type StyleProp, type ViewSt
 import { GlassView } from 'expo-glass-effect';
 import { requireNativeViewManager } from 'expo-modules-core';
 
-import { useIsDark } from '@/hooks/use-palette';
+import { useIsDark, usePalette } from '@/hooks/use-palette';
+
+/** 解析 '#RRGGBB' / '#RRGGBBAA' / 'rgba(r,g,b,a)' → 原生 Int（ARGB，alpha=FF，alpha 由独立 prop 下发）。 */
+function parseColorToInt(color: string): number | null {
+  const c = color.trim();
+  const hex6 = /^#([0-9a-f]{6})$/i.exec(c);
+  if (hex6) return (0xff000000 | parseInt(hex6[1], 16)) | 0;
+  const hex8 = /^#([0-9a-f]{8})$/i.exec(c);
+  if (hex8) {
+    const v = parseInt(hex8[1], 16);
+    return (((v & 0xffffff) | 0xff000000) | 0) as number; // 取 RGB，alpha 用独立 prop
+  }
+  const rgba = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,|$)/i.exec(c);
+  if (rgba) {
+    const [r, g, b] = [rgba[1], rgba[2], rgba[3]].map((n) => Math.min(255, Number(n)));
+    return ((0xff << 24) | (r << 16) | (g << 8) | b) | 0;
+  }
+  return null;
+}
 
 /**
  * 跨平台液态玻璃层：
@@ -106,8 +124,17 @@ export const LiquidGlassSurface = memo(function LiquidGlassSurface({
   aberrationIntensity?: number;
 }) {
   const isDark = useIsDark();
+  const palette = usePalette();
   // 采样为空/透明时的兜底底色（不透明），防止原生层把透明样本画成黑块
   const fallbackColor = isDark ? 0xff1a1c22 : 0xfff2f4f8;
+
+  // KSU（KernelSU）液态玻璃配方：
+  // - 强模糊 blurRadius≈25px → blurAmount ≈ (25-6)/180 ≈ 0.105
+  // - 表面用主题 barSurface 色重着色（对应 miuix BlurExt 的 surface.copy(0.87f)，
+  //   这里按音乐 App 背景复杂度调低到 暗色0.60 / 亮色0.70，避免糊成奶白块）
+  const ksuBlurAmount = 0.105;
+  const tintInt = parseColorToInt(palette.barSurface);
+  const tintAlpha = isDark ? 0.6 : 0.7;
 
   // Android：自研原生液态玻璃（带折射 / 色散 / 触摸弹性）。
   if (Platform.OS === 'android' && NativeLiquidGlassView) {
@@ -117,12 +144,15 @@ export const LiquidGlassSurface = memo(function LiquidGlassSurface({
         refractionHeight={refractionHeight}
         bevelWidth={bevelWidth}
         dispersionStrength={dispersionStrength}
+        blurAmount={ksuBlurAmount}
         saturation={150}
         aberrationIntensity={aberrationIntensity}
         elasticity={0.18}
         enableChromaticAberration
         enableEdgeHighlight
         fallbackColor={fallbackColor}
+        surfaceTintColor={tintInt ?? fallbackColor}
+        surfaceTintAlpha={tintAlpha}
         backdropTargetId={backdropTargetId}
         pointerEvents="none"
         style={[StyleSheet.absoluteFill, style]}

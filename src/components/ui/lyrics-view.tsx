@@ -13,6 +13,13 @@ type LyricsViewProps = {
   lines: LyricLine[];
   status: LyricsStatus;
   onSeekLine?: (line: LyricLine) => void;
+  /**
+   * 上下渐隐遮罩的底色：必须与所在页面的实际背景色一致，
+   * 否则遮罩会形成「歌词界面底色与页面不同」的色块感
+   * （播放页背景是 playerTop→playerBottom 渐变，而非 palette.background）。
+   */
+  fadeTopColor?: string;
+  fadeBottomColor?: string;
 };
 
 const RESUME_AUTO_SCROLL_MS = 3500;
@@ -51,7 +58,13 @@ const LyricRow = memo(function LyricRow({
   );
 });
 
-export function LyricsView({ lines, status, onSeekLine }: LyricsViewProps) {
+export function LyricsView({
+  lines,
+  status,
+  onSeekLine,
+  fadeTopColor,
+  fadeBottomColor,
+}: LyricsViewProps) {
   const palette = usePalette();
   const isDark = useIsDark();
   const scrollRef = useRef<ScrollView>(null);
@@ -141,16 +154,16 @@ export function LyricsView({ lines, status, onSeekLine }: LyricsViewProps) {
         ))}
       </ScrollView>
 
-      {/* 上下渐隐遮罩（不参与文字着色，避免反光泛白） */}
+      {/* 上下渐隐遮罩（不参与文字着色，避免反光泛白）；底色跟随页面背景，消除色块感 */}
       <LinearGradient
-        colors={[palette.background, 'transparent']}
+        colors={[fadeTopColor ?? palette.background, 'transparent']}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={[styles.fadeTop, { height: viewportHeight * 0.18 }]}
         pointerEvents="none"
       />
       <LinearGradient
-        colors={['transparent', palette.background]}
+        colors={['transparent', fadeBottomColor ?? palette.background]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={[styles.fadeBottom, { height: viewportHeight * 0.18 }]}

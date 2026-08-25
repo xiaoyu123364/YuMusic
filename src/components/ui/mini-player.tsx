@@ -108,13 +108,13 @@ function DraggableProgressRail() {
         onLayout={(event) => {
           width.value = event.nativeEvent.layout.width;
         }}>
-        {/* 视觉层：细轨道，中心与迷你条顶缘平齐 */}
+        {/* 视觉层：细轨道，中心与迷你条顶缘平齐（3px 细线，弱化「独立音量条」感） */}
         <View
           position="absolute"
           left={0}
           right={0}
-          top={12}
-          height={4}
+          top={12.5}
+          height={3}
           borderRadius={999}
           backgroundColor={isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.10)'}
           overflow="visible">
@@ -132,16 +132,16 @@ function DraggableProgressRail() {
             ]}
           />
         </View>
-        {/* 液态玻璃小滑钮 */}
+        {/* 液态玻璃小滑钮（14px，贴线居中：轨道中心 y=14 → top=7） */}
         <Animated.View
           style={[
             {
               position: 'absolute',
-              left: -8,
-              top: 6,
-              width: 16,
-              height: 16,
-              borderRadius: 8,
+              left: -7,
+              top: 7,
+              width: 14,
+              height: 14,
+              borderRadius: 7,
               overflow: 'hidden',
               backgroundColor: isDark ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.65)',
               borderWidth: StyleSheet.hairlineWidth,
@@ -154,7 +154,7 @@ function DraggableProgressRail() {
             },
             knobStyle,
           ]}>
-          <GlassPanel kind={design.barGlass} variant="control" radius={8} blurIntensity={60} />
+          <GlassPanel kind={design.barGlass} variant="control" radius={7} blurIntensity={60} />
         </Animated.View>
       </View>
     </GestureDetector>

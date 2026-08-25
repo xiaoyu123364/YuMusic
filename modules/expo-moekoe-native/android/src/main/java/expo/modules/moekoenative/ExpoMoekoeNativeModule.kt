@@ -93,6 +93,8 @@ class ExpoMoekoeNativeModule : Module() {
       Prop("enableChromaticAberration") { view: LiquidGlassSurfaceView, value: Boolean -> view.setEnableChromaticAberration(value) }
       Prop("enableEdgeHighlight") { view: LiquidGlassSurfaceView, value: Boolean -> view.setEnableEdgeHighlight(value) }
       Prop("fallbackColor") { view: LiquidGlassSurfaceView, value: Int -> view.setFallbackColor(value) }
+      Prop("surfaceTintColor") { view: LiquidGlassSurfaceView, value: Int -> view.setSurfaceTintColor(value) }
+      Prop("surfaceTintAlpha") { view: LiquidGlassSurfaceView, value: Float -> view.setSurfaceTintAlpha(value) }
       // 采样源：传页面内容容器的 node handle，绑定为背景采样源，避免自采样递归。
       Prop("backdropTargetId") { view: LiquidGlassSurfaceView, id: Int ->
         val target = appContext.findView<android.view.View>(id)

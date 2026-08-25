@@ -36,7 +36,10 @@ export function GlassPanel({
   const isDark = useIsDark();
   const backdropTargetId = useBackdropTargetId();
 
-  if (kind === 'liquid' && backdropTargetId != null) {
+  // liquid 恒走原生视图：原生侧在拿不到显式 backdrop 时会自动绑定
+  // Activity decorView 兜底，不再依赖 backdropTargetId 解析成功
+  //（旧 gating 是「玻璃完全不渲染」的元凶之一，解析失败即静默降级 BlurView）。
+  if (kind === 'liquid') {
     return (
       <LiquidGlassSurface
         radius={radius}
@@ -50,7 +53,7 @@ export function GlassPanel({
     );
   }
 
-  if (kind === 'liquid' || kind === 'frost') {
+  if (kind === 'frost') {
     return (
       <BlurView
         intensity={blurIntensity}

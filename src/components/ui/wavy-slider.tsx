@@ -79,7 +79,11 @@ export function WavySlider({
       path.moveTo(0, MID_Y);
       return path;
     }
-    const end = Math.max(Math.min(ratio * w, w - STROKE_HALF), 2);
+    // 波尾与拇指圆心使用同一钳制公式（[r+1, w-r-1]）：
+    // 满进度时波尾正好停在拇指处，不会再从拇指右侧戳出 5px 的「突出」。
+    const minX = THUMB_RADIUS + 1;
+    const maxX = Math.max(w - (THUMB_RADIUS + 1), minX);
+    const end = Math.min(Math.max(ratio * w, minX), maxX);
     const amp = 1.6 + ampBoost * 4.2;
     // 密集采样（step=3）+ 二次贝塞尔过中点平滑：
     // 旧实现是 step=5 的折线（lineTo 直连），放大时折角明显、边缘粗糙。

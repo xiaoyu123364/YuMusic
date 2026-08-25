@@ -360,7 +360,13 @@ export default function PlayerScreen() {
 
             <YStack flex={1} paddingTop={8}>
               {lyricsMounted ? (
-                <LyricsView lines={lyrics} status={lyricsStatus} onSeekLine={handleSeekLine} />
+                <LyricsView
+                  lines={lyrics}
+                  status={lyricsStatus}
+                  onSeekLine={handleSeekLine}
+                  fadeTopColor={palette.playerTop}
+                  fadeBottomColor={palette.playerBottom}
+                />
               ) : null}
             </YStack>
           </XStack>
@@ -411,6 +417,8 @@ export default function PlayerScreen() {
                   lines={lyrics}
                   status={lyricsStatus}
                   onSeekLine={handleSeekLine}
+                  fadeTopColor={palette.playerTop}
+                  fadeBottomColor={palette.playerBottom}
                 />
               ) : null}
             </YStack>
