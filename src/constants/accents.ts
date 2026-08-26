@@ -34,6 +34,7 @@ export function withAlpha(hex: string, alpha: number): `rgba(${string})` {
 }
 
 export type AccentPresetId =
+  | 'apple'
   | 'dynamic'
   | 'pink'
   | 'blue'
@@ -67,6 +68,8 @@ export type AccentPreset = {
 };
 
 export const ACCENT_PRESETS: readonly AccentPreset[] = [
+  // Apple Music 红：默认主色，还原 Apple Music 的品牌红（浅 #FA233B / 深 #FB4B55）。
+  { id: 'apple', label: 'Apple红', light: '#FA233B', dark: '#FB4B55' },
   // 动态取色（Material You）：读取 Android 12+ 系统壁纸主色 / 当前封面 Palette，
   // 实时注入全局主题。此处为不可用（低版本/提取失败）时的回退色。
   { id: 'dynamic', label: '动态', light: '#3D8BFF', dark: '#66A3FF' },
@@ -81,7 +84,7 @@ export const ACCENT_PRESETS: readonly AccentPreset[] = [
   { id: 'orange', label: '落日橙', light: '#F0641E', dark: '#FF8A50' },
 ];
 
-export const DEFAULT_ACCENT_ID: AccentPresetId = 'dynamic';
+export const DEFAULT_ACCENT_ID: AccentPresetId = 'apple';
 
 export function isAccentPresetId(value: unknown): value is AccentPresetId {
   return typeof value === 'string' && ACCENT_PRESETS.some((preset) => preset.id === value);

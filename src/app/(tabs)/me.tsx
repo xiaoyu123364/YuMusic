@@ -352,7 +352,7 @@ export default function MeScreen() {
             refreshing={state.refreshing}
             onRefresh={() => void load('refresh')}
             tintColor={palette.accent}
-            colors={['#4285F4', '#EA4335', '#FBBC05', '#34A853']}
+            colors={[palette.accent]}
             progressBackgroundColor={palette.card}
             progressViewOffset={insets.top}
           />

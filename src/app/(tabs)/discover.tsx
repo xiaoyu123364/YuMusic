@@ -754,7 +754,7 @@ export default function DiscoverScreen() {
           maxWidth={MaxContentWidth}
           paddingHorizontal={16}
           gap={14}>
-          <Text color={palette.text} fontSize={26} fontWeight="800" letterSpacing={0.3}>
+          <Text color={palette.text} fontSize={34} fontWeight="800" letterSpacing={0.37}>
             发现
           </Text>
           <SegmentedControl options={DISCOVER_TABS} value={tab} onChange={switchTab} />

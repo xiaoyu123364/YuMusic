@@ -246,7 +246,7 @@ export default function HomeScreen() {
             refreshing={state.refreshing}
             onRefresh={() => void refreshHome('refresh')}
             tintColor={palette.accent}
-            colors={['#4285F4', '#EA4335', '#FBBC05', '#34A853']}
+            colors={[palette.accent]}
             progressBackgroundColor={palette.card}
             progressViewOffset={insets.top}
           />
@@ -258,6 +258,16 @@ export default function HomeScreen() {
             paddingBottom: dockInset,
           },
         ]}>
+        {/* iOS 大标题（Apple Music「主页 / 立即聆听」式页头） */}
+        <Text
+          color={palette.text}
+          fontSize={34}
+          fontWeight="800"
+          letterSpacing={0.37}
+          paddingHorizontal={16}>
+          主页
+        </Text>
+
         <XStack
           alignItems="center"
           gap={9}

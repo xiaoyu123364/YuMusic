@@ -122,9 +122,17 @@ export function hydrateSettings(): Promise<void> {
   if (!hydrationPromise) {
     hydrationPromise = (async () => {
       const stored = await readStoredAppearance();
+      // Apple Music 改版一次性迁移：旧默认「动态」主色 → 「Apple红」。
+      // 用户之后仍可在设置里自由切回动态取色。
+      const migratedAccent =
+        stored && stored.accentId === 'dynamic' ? 'apple' : undefined;
       settingsStore.setState({
         themeMode: stored && isThemeMode(stored.themeMode) ? stored.themeMode : 'system',
-        accentId: stored && isAccentPresetId(stored.accentId) ? stored.accentId : DEFAULT_ACCENT_ID,
+        accentId: migratedAccent
+          ? 'apple'
+          : stored && isAccentPresetId(stored.accentId)
+            ? stored.accentId
+            : DEFAULT_ACCENT_ID,
         designStyle: stored && isDesignStyle(stored.designStyle) ? stored.designStyle : 'apple',
         customControlGlass:
           stored && isGlassKind(stored.customControlGlass) ? stored.customControlGlass : 'liquid',

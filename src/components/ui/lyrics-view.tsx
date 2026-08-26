@@ -1,6 +1,14 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { memo, useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
 import { ScrollView, StyleSheet, type LayoutChangeEvent } from 'react-native';
+import Animated, {
+  Extrapolation,
+  interpolate,
+  interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 import { Text, View, YStack } from 'tamagui';
 
 import { findActiveLyricIndex } from '@/features/player/lyrics';
@@ -8,6 +16,9 @@ import { usePlayerProgressSelector } from '@/features/player/store';
 import type { LyricLine, LyricsStatus } from '@/features/player/types';
 import { useIsDark, usePalette } from '@/hooks/use-palette';
 import { MaterialLoading } from '@/components/ui/loading';
+
+// Tamagui Text 的动画化包装：支持 reanimated 驱动的颜色/缩放过渡
+const AnimatedText = Animated.createAnimatedComponent(Text);
 
 type LyricsViewProps = {
   lines: LyricLine[];
@@ -34,6 +45,7 @@ type LyricRowProps = {
 };
 
 // 每一行用 memo + 稳定的回调，仅当 active 状态切换时才重渲染，避免整列表抖动。
+// 高亮过渡：颜色用 interpolateColor 平滑渐变，缩放用 spring 弹性放大（Apple Music 质感）。
 const LyricRow = memo(function LyricRow({
   line,
   active,
@@ -42,19 +54,41 @@ const LyricRow = memo(function LyricRow({
   onLayoutLine,
   onSeekLine,
 }: LyricRowProps) {
+  // 初值直接取当前状态，避免首次挂载时从暗色弹到高亮的闪动
+  const progress = useSharedValue(active ? 1 : 0);
+
+  useEffect(() => {
+    progress.value = withSpring(active ? 1 : 0, {
+      damping: 24,
+      stiffness: 200,
+      mass: 0.8,
+    });
+  }, [active, progress]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    color: interpolateColor(
+      progress.value,
+      [0, 1],
+      [inactiveColor as string, activeColor as string]
+    ),
+    transform: [
+      { scale: interpolate(progress.value, [0, 1], [1, 1.07], Extrapolation.CLAMP) },
+    ],
+  }));
+
   return (
-    <Text
+    <AnimatedText
       onLayout={(event) => onLayoutLine(event.nativeEvent.layout.y)}
       onPress={onSeekLine ? () => onSeekLine(line) : undefined}
       suppressHighlighting
       textAlign="center"
       paddingVertical={11}
-      color={active ? activeColor : inactiveColor}
       fontSize={16}
       lineHeight={25}
-      fontWeight={active ? '700' : '500'}>
+      fontWeight={active ? '700' : '500'}
+      style={animatedStyle}>
       {line.text}
-    </Text>
+    </AnimatedText>
   );
 });
 

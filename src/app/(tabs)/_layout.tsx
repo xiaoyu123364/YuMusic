@@ -15,13 +15,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MiniPlayer } from '@/components/ui/mini-player';
 import { LiquidGlassBackdrop, LiquidGlassSurface, useBackdropTargetId } from '@/components/ui/liquid-glass';
-import {
-  DockGap,
-  TabBarBottomInset,
-  TabBarHeight,
-  TabBarSideMargin,
-} from '@/constants/layout';
-import { useBarBlur, useFloatingBar, useLiquidGlass } from '@/features/settings/store';
+import { DockGap, TabBarHeight } from '@/constants/layout';
+import { useBarBlur, useLiquidGlass } from '@/features/settings/store';
 import { useIsDark, usePalette } from '@/hooks/use-palette';
 
 const TAB_META: Record<string, { glyph: 'home' | 'compass' | 'person'; label: string }> = {
@@ -32,7 +27,7 @@ const TAB_META: Record<string, { glyph: 'home' | 'compass' | 'person'; label: st
 
 type TabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
 
-/** 悬浮液态玻璃底栏：单色线稿图标、无遮罩圆圈、激活仅图标与文字高亮。 */
+/** Apple Music 式底部导航栏：全宽半透明材质、49pt 内容高、顶部发丝线、图标+小标签。 */
 function FloatingGlassTabBar({
   state,
   navigation,
@@ -42,42 +37,29 @@ function FloatingGlassTabBar({
   const isDark = useIsDark();
   const insets = useSafeAreaInsets();
   const barBlur = useBarBlur();
-  const floatingBar = useFloatingBar();
   const liquidGlass = useLiquidGlass();
 
-  const radius = floatingBar ? 28 : 0;
-
   // 底部导航栏固定不可拖动（旧版「物理拖拽」手势已移除）：
-  // 可拖动的只有其上方迷你播放条顶缘的进度滑块。
+  // 可拖动的只有迷你播放条内部的进度方块。
 
   return (
-    <View
-      style={[
-        styles.tabBarWrap,
-        floatingBar
-          ? {
-              left: TabBarSideMargin,
-              right: TabBarSideMargin,
-              bottom: insets.bottom + TabBarBottomInset,
-              borderRadius: radius,
-            }
-          : { left: 0, right: 0, bottom: 0 },
-      ]}
-      pointerEvents="box-none">
+    <View style={[styles.tabBarWrap, { left: 0, right: 0, bottom: 0 }]} pointerEvents="box-none">
         <View
           style={[
             styles.card,
             {
-              height: TabBarHeight,
-              borderRadius: radius,
-              // 液态玻璃模式下卡片自身必须透明：底色会污染玻璃的背景采样，
-              // 并与玻璃 tint 叠加成「白色一条」。表面色由玻璃 tint 提供（KSU 配方）。
+              height: TabBarHeight + insets.bottom,
+              paddingBottom: insets.bottom,
               backgroundColor: liquidGlass ? 'transparent' : palette.barSurface,
-              borderColor: liquidGlass ? palette.barBorder : palette.border,
+              borderTopWidth: StyleSheet.hairlineWidth,
+              borderLeftWidth: 0,
+              borderRightWidth: 0,
+              borderBottomWidth: 0,
+              borderColor: palette.border,
             },
           ]}>
           {liquidGlass ? (
-            <LiquidGlassSurface radius={radius} backdropTargetId={backdropTargetId} />
+            <LiquidGlassSurface radius={0} backdropTargetId={backdropTargetId} />
           ) : (
             <BlurView
               intensity={barBlur ? 75 : 0}
@@ -91,7 +73,7 @@ function FloatingGlassTabBar({
             const meta = TAB_META[route.name];
             if (!meta) return null;
             const focused = state.index === index;
-            const tint = focused ? palette.accent : palette.textTertiary;
+            const tint = focused ? palette.accent : palette.textSecondary;
 
             const onPress = () => {
               const event = navigation.emit({
@@ -111,13 +93,10 @@ function FloatingGlassTabBar({
                 style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}>
                 <Ionicons
                   name={focused ? meta.glyph : (`${meta.glyph}-outline` as const)}
-                  size={22}
+                  size={24}
                   color={tint}
                 />
-                <RNText
-                  style={[styles.label, { color: tint }, focused && styles.labelFocused]}>
-                  {meta.label}
-                </RNText>
+                <RNText style={[styles.label, { color: tint }]}>{meta.label}</RNText>
               </Pressable>
             );
           })}
@@ -146,7 +125,7 @@ export default function TabsLayout() {
     };
   }, []);
 
-  const dockWidth = Math.min(width - TabBarSideMargin * 2, 680);
+  const dockWidth = Math.min(width - 16 * 2, 680);
 
   return (
     <LiquidGlassBackdrop>
@@ -172,7 +151,7 @@ export default function TabsLayout() {
             style={[
               styles.dock,
               {
-                bottom: insets.bottom + TabBarBottomInset + TabBarHeight + DockGap,
+                bottom: insets.bottom + TabBarHeight + DockGap,
                 width: dockWidth,
                 marginLeft: (width - dockWidth) / 2,
               },
@@ -191,15 +170,9 @@ const styles = StyleSheet.create({
   },
   tabBarWrap: {
     position: 'absolute',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.28,
-    shadowRadius: 28,
-    elevation: 14,
   },
   card: {
     overflow: 'hidden',
-    borderWidth: 1,
   },
   row: {
     flex: 1,
@@ -211,17 +184,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
+    paddingTop: 6,
   },
   itemPressed: {
-    opacity: 0.6,
-    transform: [{ scale: 0.94 }],
+    opacity: 0.55,
   },
   label: {
-    fontSize: 10.5,
-    fontWeight: '600',
-  },
-  labelFocused: {
-    fontWeight: '700',
+    fontSize: 10,
+    fontWeight: '500',
+    letterSpacing: 0.1,
   },
   dock: {
     position: 'absolute',
