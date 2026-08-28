@@ -102,7 +102,7 @@ function InternalProgressRail() {
         left={RAIL_INSET}
         right={RAIL_INSET}
         top={0}
-        height={24}
+        height={18}
         zIndex={10}
         onLayout={(event) => {
           width.value = event.nativeEvent.layout.width;
@@ -112,7 +112,7 @@ function InternalProgressRail() {
           position="absolute"
           left={0}
           right={0}
-          top={5}
+          top={6}
           height={2.5}
           borderRadius={999}
           backgroundColor={isDark ? 'rgba(255,255,255,0.20)' : 'rgba(0,0,0,0.12)'}
@@ -137,7 +137,7 @@ function InternalProgressRail() {
             {
               position: 'absolute',
               left: -6,
-              top: 0,
+              top: 1,
               width: 12,
               height: 12,
               borderRadius: 4,
@@ -171,7 +171,7 @@ export function MiniPlayer() {
   useEffect(() => {
     if (playing) {
       rotation.value = withRepeat(
-        withTiming(rotation.value + 360, { duration: 16000, easing: Easing.linear }),
+        withTiming(rotation.value + 360, { duration: 24000, easing: Easing.linear }),
         -1,
         false
       );

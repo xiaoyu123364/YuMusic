@@ -28,6 +28,7 @@ import {
   useSettings,
   type DesignStyle,
   type GlassKind,
+  type PlayerCoverLook,
   type SliderLook,
   type ThemeMode,
 } from '@/features/settings/store';
@@ -56,6 +57,11 @@ const SLIDER_LOOK_OPTIONS = [
   { value: 'wavy', label: '毛毛虫波浪' },
   { value: 'smooth', label: '平滑胶囊' },
 ] as const satisfies readonly { value: SliderLook; label: string }[];
+
+const PLAYER_COVER_OPTIONS = [
+  { value: 'card', label: '方形卡片' },
+  { value: 'disc', label: '旋转唱片' },
+] as const satisfies readonly { value: PlayerCoverLook; label: string }[];
 
 const REPO_URL = 'https://github.com/MoeKoeMusic/MoeKoeMusic-Mobile';
 const WEBSITE_URL = 'https://music.moekoe.cn';
@@ -284,6 +290,7 @@ export default function SettingsScreen() {
     customControlGlass,
     customBarGlass,
     customSliderLook,
+    playerCoverLook,
     desktopLyrics,
     monetColor,
     barBlur,
@@ -503,6 +510,21 @@ export default function SettingsScreen() {
               borderColor={palette.border}
               paddingVertical={4}
               overflow="hidden">
+              <YStack gap={10} paddingHorizontal={14} paddingVertical={10}>
+                <Text color={palette.textSecondary} fontSize={13} fontWeight="600">
+                  播放页封面形式
+                </Text>
+                <SegmentedControl
+                  options={PLAYER_COVER_OPTIONS}
+                  value={playerCoverLook}
+                  onChange={settingsActions.setPlayerCoverLook}
+                />
+              </YStack>
+              <View
+                height={StyleSheet.hairlineWidth}
+                backgroundColor={palette.border}
+                marginHorizontal={14}
+              />
               <ToggleRow label="桌面歌词" value={desktopLyrics} onToggle={toggleDesktopLyrics} />
               {desktopLyrics ? (
                 <>

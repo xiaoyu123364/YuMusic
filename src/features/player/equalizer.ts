@@ -16,9 +16,9 @@ export type EqualizerPreset = {
 /** 4 种核心声音风格预设，与原生 Equalizer band 增益一一对应。 */
 export const EQUALIZER_PRESETS: readonly EqualizerPreset[] = [
   { id: 'flat', label: '原声', description: '纯净原始输出，不加任何增益调音' },
-  { id: 'mastering', label: '母带处理', description: '强化声场开阔度与细节动态' },
-  { id: 'clarity', label: '通透饱满', description: '饱满下潜 + 通透空气感' },
-  { id: 'hakimi', label: '哈基米曲线', description: '削减齿音杂质，甜美通透' },
+  { id: 'mastering', label: '母带处理', description: '强化声场开阔度与细节动态，带母带级响度处理' },
+  { id: 'clarity', label: '通透饱满', description: '澎湃低频下潜 + 通透空气感，全频段饱满' },
+  { id: 'hakimi', label: '哈基米曲线', description: '哈曼目标曲线调音，甜美高频延伸' },
 ];
 
 export function isEqualizerPresetId(value: unknown): value is EqualizerPresetId {
@@ -85,11 +85,11 @@ export function hydrateEqualizer(): Promise<void> {
 const PRESET_GAINS: Record<EqualizerPresetId, number[]> = {
   flat: [],
   // 母带处理：低频 30Hz +2dB，中频平直，高频 1.5k/2.5k +1.5dB、4k/8k +1dB
-  mastering: [30, 200, 100, 0, 500, 0, 1500, 150, 2500, 150, 4000, 100, 8000, 100],
+  mastering: [30, 150, 63, 100, 250, 0, 630, 100, 1000, 150, 1600, 200, 2500, 200, 4000, 150, 8000, 150, 12500, 100],
   // 通透饱满：低频 30/63Hz +4dB，中频 300Hz 0dB，高频 2k/4k +3.5dB、8k +2dB
-  clarity: [30, 400, 63, 400, 300, 0, 2000, 350, 4000, 350, 8000, 200],
+  clarity: [30, 300, 40, 450, 63, 500, 80, 450, 250, 100, 800, 300, 2000, 350, 4000, 400, 8000, 250, 12500, 100],
   // 哈基米曲线：超低频 25Hz +3.5dB、50Hz +1.7dB，中频 160-800Hz -1dB，高频 2.5k/8k +1.2dB
-  hakimi: [25, 350, 50, 170, 160, -100, 400, -100, 800, -100, 2500, 120, 8000, 120],
+  hakimi: [20, 400, 25, 400, 50, 200, 160, -100, 400, -100, 800, -50, 2500, 100, 8000, 150, 12500, 400, 16000, 450, 20000, 500],
 };
 
 function applyToNative(id: EqualizerPresetId) {

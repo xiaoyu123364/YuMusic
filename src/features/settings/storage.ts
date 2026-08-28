@@ -17,6 +17,7 @@ export type StoredAppearance = {
   predictiveBack?: unknown;
   lyricOverlayBg?: unknown;
   lyricOverlayText?: unknown;
+  playerCoverLook?: unknown;
 };
 
 export async function readStoredAppearance(): Promise<StoredAppearance | null> {
@@ -45,6 +46,7 @@ export async function writeStoredAppearance(value: {
   predictiveBack: boolean;
   lyricOverlayBg: string | null;
   lyricOverlayText: string | null;
+  playerCoverLook: string;
 }): Promise<void> {
   try {
     await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(value));

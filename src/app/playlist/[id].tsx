@@ -395,9 +395,39 @@ export default function PlaylistScreen() {
                 取消
               </Text>
             </XStack>
-            <Text color={palette.text} fontSize={13.5} fontWeight="700">
-              已选 {selectedKeys.size} 首
-            </Text>
+            <XStack alignItems="center" gap={8}>
+              <XStack
+                alignItems="center"
+                gap={4}
+                paddingHorizontal={10}
+                height={32}
+                borderRadius={16}
+                backgroundColor={selectedKeys.size === state.tracks.length ? palette.accentSoft : palette.cardAlt}
+                transition="quickest"
+                pressStyle={{ opacity: 0.7, scale: 0.97 }}
+                onPress={() => {
+                  if (selectedKeys.size === state.tracks.length) {
+                    setSelectedKeys(new Set());
+                  } else {
+                    setSelectedKeys(new Set(state.tracks.map((t) => t.hash)));
+                  }
+                }}>
+                <Ionicons
+                  name={selectedKeys.size === state.tracks.length ? 'checkbox' : 'square-outline'}
+                  size={14}
+                  color={selectedKeys.size === state.tracks.length ? palette.accent : palette.textSecondary}
+                />
+                <Text
+                  color={selectedKeys.size === state.tracks.length ? palette.accent : palette.textSecondary}
+                  fontSize={12}
+                  fontWeight="600">
+                  {selectedKeys.size === state.tracks.length ? '全不选' : '全选'}
+                </Text>
+              </XStack>
+              <Text color={palette.text} fontSize={13.5} fontWeight="700">
+                已选 {selectedKeys.size} 首
+              </Text>
+            </XStack>
             <XStack gap={8} alignItems="center">
               <XStack
                 alignItems="center"

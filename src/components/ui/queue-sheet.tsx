@@ -19,7 +19,7 @@ const MODE_LABEL: Record<string, string> = {
 
 const QUEUE_ITEM_HEIGHT = 58;
 const QUEUE_HEADER_HEIGHT = 78;
-const QUEUE_MAX_HEIGHT_RATIO = 0.68;
+const QUEUE_MAX_HEIGHT_RATIO = 0.82;
 const QUEUE_RENDER_ALL_LIMIT = 100;
 
 export function QueueSheet({ open, onOpenChange }: QueueSheetProps) {
@@ -45,7 +45,8 @@ export function QueueSheet({ open, onOpenChange }: QueueSheetProps) {
       modal={false}
       open={open}
       onOpenChange={onOpenChange}
-      snapPointsMode="fit"
+      snapPointsMode="percent"
+      snapPoints={[82]}
       dismissOnSnapToBottom
       transition="medium"
       zIndex={100000}>
@@ -57,6 +58,7 @@ export function QueueSheet({ open, onOpenChange }: QueueSheetProps) {
       />
       <Sheet.Handle backgroundColor={palette.cardAlt} width={40} alignSelf="center" />
       <Sheet.Frame
+        flex={1}
         backgroundColor={palette.card}
         borderTopLeftRadius={26}
         borderTopRightRadius={26}
@@ -97,9 +99,10 @@ export function QueueSheet({ open, onOpenChange }: QueueSheetProps) {
 
         <FlatList
           data={queue}
-          keyExtractor={(track, itemIndex) => `${track.hash}-${itemIndex}`}
+          extraData={index}
+          keyExtractor={(track, itemIndex) => `${track.hash}_${itemIndex}`}
           showsVerticalScrollIndicator={false}
-          scrollEnabled={listScrollable}
+          scrollEnabled={true}
           bounces={listScrollable}
           alwaysBounceVertical={false}
           overScrollMode="never"
@@ -107,14 +110,14 @@ export function QueueSheet({ open, onOpenChange }: QueueSheetProps) {
           maxToRenderPerBatch={batchRows}
           updateCellsBatchingPeriod={0}
           windowSize={renderAllRows ? 51 : 25}
-          removeClippedSubviews={false}
+          removeClippedSubviews={true}
           nestedScrollEnabled
           getItemLayout={(_, itemIndex) => ({
             length: QUEUE_ITEM_HEIGHT,
             offset: QUEUE_ITEM_HEIGHT * itemIndex,
             index: itemIndex,
           })}
-          style={{ height: listHeight }}
+          style={{ flex: 1 }}
           contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 16 }}
           renderItem={({ item: track, index: itemIndex }) => {
             const active = itemIndex === index;

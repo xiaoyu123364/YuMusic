@@ -2,12 +2,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { memo, useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
 import { ScrollView, StyleSheet, type LayoutChangeEvent } from 'react-native';
 import Animated, {
+  Easing,
   Extrapolation,
   interpolate,
   interpolateColor,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 import { Text, View, YStack } from 'tamagui';
 
@@ -38,6 +40,8 @@ const RESUME_AUTO_SCROLL_MS = 3500;
 type LyricRowProps = {
   line: LyricLine;
   active: boolean;
+  /** 当前行歌词的持续时长（毫秒），用于渐进高亮动画。 */
+  lineDurationMs: number;
   activeColor: ComponentProps<typeof Text>['color'];
   inactiveColor: ComponentProps<typeof Text>['color'];
   onLayoutLine: (offset: number) => void;
@@ -49,6 +53,7 @@ type LyricRowProps = {
 const LyricRow = memo(function LyricRow({
   line,
   active,
+  lineDurationMs,
   activeColor,
   inactiveColor,
   onLayoutLine,
@@ -58,12 +63,15 @@ const LyricRow = memo(function LyricRow({
   const progress = useSharedValue(active ? 1 : 0);
 
   useEffect(() => {
-    progress.value = withSpring(active ? 1 : 0, {
-      damping: 24,
-      stiffness: 200,
-      mass: 0.8,
-    });
-  }, [active, progress]);
+    if (active) {
+      // 根据歌词行持续时长做线性渐进高亮，模拟"唱到哪亮到哪"
+      const duration = Math.max(300, Math.min(lineDurationMs, 8000));
+      progress.value = withTiming(1, { duration, easing: Easing.linear });
+    } else {
+      // 离开时快速回暗
+      progress.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) });
+    }
+  }, [active, lineDurationMs, progress]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     color: interpolateColor(
@@ -167,6 +175,7 @@ export function LyricsView({
         ref={scrollRef}
         style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
+        removeClippedSubviews={true}
         onLayout={(event: LayoutChangeEvent) => setViewportHeight(event.nativeEvent.layout.height)}
         onScrollBeginDrag={() => {
           userScrollUntil.current = Date.now() + RESUME_AUTO_SCROLL_MS;
@@ -175,17 +184,22 @@ export function LyricsView({
           paddingVertical: viewportHeight ? viewportHeight * 0.42 : 200,
           paddingHorizontal: 28,
         }}>
-        {lines.map((line, index) => (
-          <LyricRow
-            key={`${line.timeMs}-${index}`}
-            line={line}
-            active={index === activeIndex}
-            activeColor={activeColor}
-            inactiveColor={inactiveColor}
-            onLayoutLine={(offset) => handleLayoutLine(index, offset)}
-            onSeekLine={onSeekLine}
-          />
-        ))}
+        {lines.map((line, index) => {
+          const nextTimeMs = index < lines.length - 1 ? lines[index + 1].timeMs : line.timeMs + 5000;
+          const lineDurationMs = nextTimeMs - line.timeMs;
+          return (
+            <LyricRow
+              key={`${line.timeMs}-${index}`}
+              line={line}
+              active={index === activeIndex}
+              lineDurationMs={lineDurationMs}
+              activeColor={activeColor}
+              inactiveColor={inactiveColor}
+              onLayoutLine={(offset) => handleLayoutLine(index, offset)}
+              onSeekLine={onSeekLine}
+            />
+          );
+        })}
       </ScrollView>
 
       {/* 上下渐隐遮罩（不参与文字着色，避免反光泛白）；底色跟随页面背景，消除色块感 */}

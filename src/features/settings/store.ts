@@ -15,6 +15,9 @@ export type GlassKind = 'liquid' | 'frost' | 'plain';
 /** 滑杆样式：M3E 波浪「毛毛虫」/ 平滑胶囊。 */
 export type SliderLook = 'wavy' | 'smooth';
 
+/** 播放页封面展示形式：方形大卡片 / 旋转黑胶唱片。 */
+export type PlayerCoverLook = 'card' | 'disc';
+
 export type SettingsState = {
   hydrated: boolean;
   themeMode: ThemeMode;
@@ -27,6 +30,8 @@ export type SettingsState = {
   customBarGlass: GlassKind;
   /** 自定义：进度条/音量条样式。 */
   customSliderLook: SliderLook;
+  /** 播放页封面形式：方形卡片 / 旋转唱片。 */
+  playerCoverLook: PlayerCoverLook;
   /** 桌面歌词悬浮窗（Android 需 SYSTEM_ALERT_WINDOW 权限）。 */
   desktopLyrics: boolean;
   /** Monet 动态取色：从主色派生带色调的柔和表面色。 */
@@ -53,6 +58,7 @@ const INITIAL_SETTINGS_STATE: SettingsState = {
   customControlGlass: 'liquid',
   customBarGlass: 'liquid',
   customSliderLook: 'smooth',
+  playerCoverLook: 'card',
   desktopLyrics: false,
   monetColor: true,
   barBlur: true,
@@ -115,6 +121,10 @@ function isSliderLook(value: unknown): value is SliderLook {
   return value === 'wavy' || value === 'smooth';
 }
 
+function isPlayerCoverLook(value: unknown): value is PlayerCoverLook {
+  return value === 'card' || value === 'disc';
+}
+
 let hydrationPromise: Promise<void> | null = null;
 
 /** 在根布局模块作用域调用一次;UI 由 hydrated 门控,不存在与用户操作的竞态。 */
@@ -140,6 +150,8 @@ export function hydrateSettings(): Promise<void> {
           stored && isGlassKind(stored.customBarGlass) ? stored.customBarGlass : 'liquid',
         customSliderLook:
           stored && isSliderLook(stored.customSliderLook) ? stored.customSliderLook : 'smooth',
+        playerCoverLook:
+          stored && isPlayerCoverLook(stored.playerCoverLook) ? stored.playerCoverLook : 'card',
         desktopLyrics: stored?.desktopLyrics === true,
         monetColor: stored?.monetColor !== false,
         barBlur: stored?.barBlur !== false,
@@ -166,6 +178,7 @@ function persist() {
     customControlGlass: s.customControlGlass,
     customBarGlass: s.customBarGlass,
     customSliderLook: s.customSliderLook,
+    playerCoverLook: s.playerCoverLook,
     desktopLyrics: s.desktopLyrics,
     monetColor: s.monetColor,
     barBlur: s.barBlur,
@@ -200,6 +213,16 @@ export const settingsActions = {
   },
   setCustomSliderLook(customSliderLook: SliderLook) {
     settingsStore.setState({ customSliderLook });
+    persist();
+  },
+  setPlayerCoverLook(playerCoverLook: PlayerCoverLook) {
+    settingsStore.setState({ playerCoverLook });
+    persist();
+  },
+  togglePlayerCoverLook() {
+    const current = settingsStore.getState().playerCoverLook;
+    const next: PlayerCoverLook = current === 'disc' ? 'card' : 'disc';
+    settingsStore.setState({ playerCoverLook: next });
     persist();
   },
   setDesktopLyrics(desktopLyrics: boolean) {
@@ -331,3 +354,12 @@ export function useCustomSliderLook(): SliderLook {
     () => INITIAL_SETTINGS_STATE.customSliderLook
   );
 }
+
+export function usePlayerCoverLook(): PlayerCoverLook {
+  return useSyncExternalStore(
+    settingsStore.subscribe,
+    () => settingsStore.getState().playerCoverLook,
+    () => INITIAL_SETTINGS_STATE.playerCoverLook
+  );
+}
+
