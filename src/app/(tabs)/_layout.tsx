@@ -12,9 +12,17 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  runOnJS,
+} from 'react-native-reanimated';
 
 import { MiniPlayer } from '@/components/ui/mini-player';
 import { LiquidGlassBackdrop, LiquidGlassSurface, useBackdropTargetId } from '@/components/ui/liquid-glass';
+import { GlassPanel } from '@/components/ui/glass';
 import { DockGap, TabBarHeight } from '@/constants/layout';
 import { useBarBlur, useLiquidGlass } from '@/features/settings/store';
 import { useIsDark, usePalette } from '@/hooks/use-palette';
@@ -27,6 +35,70 @@ const TAB_META: Record<string, { glyph: 'home' | 'compass' | 'person'; label: st
 
 type TabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
 
+function TabItem({
+  route,
+  index,
+  state,
+  navigation,
+  tabWidth,
+}: {
+  route: any;
+  index: number;
+  state: any;
+  navigation: any;
+  tabWidth: number;
+}) {
+  const palette = usePalette();
+  const meta = TAB_META[route.name];
+  const scale = useSharedValue(1);
+
+  if (!meta) return null;
+
+  const focused = state.index === index;
+  const tint = focused ? palette.accent : palette.textSecondary;
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.85, { damping: 15, stiffness: 300 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 15, stiffness: 300 });
+  };
+
+  const onPress = () => {
+    const event = navigation.emit({
+      type: 'tabPress',
+      target: route.key,
+      canPreventDefault: true,
+    });
+    if (!focused && !event.defaultPrevented) {
+      navigation.navigate(route.name);
+    }
+  };
+
+  return (
+    <Pressable
+      key={route.key}
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={{ width: tabWidth, alignItems: 'center', justifyContent: 'center' }}>
+      <Animated.View style={[styles.item, animatedStyle]}>
+        <Ionicons
+          name={focused ? meta.glyph : (`${meta.glyph}-outline` as const)}
+          size={24}
+          color={tint}
+        />
+        <RNText style={[styles.label, { color: tint }]}>{meta.label}</RNText>
+      </Animated.View>
+    </Pressable>
+  );
+}
+
 /** Apple Music 式底部导航栏：全宽半透明材质、49pt 内容高、顶部发丝线、图标+小标签。 */
 function FloatingGlassTabBar({
   state,
@@ -38,28 +110,84 @@ function FloatingGlassTabBar({
   const insets = useSafeAreaInsets();
   const barBlur = useBarBlur();
   const liquidGlass = useLiquidGlass();
+  const { width } = useWindowDimensions();
 
-  // 底部导航栏固定不可拖动（旧版「物理拖拽」手势已移除）：
-  // 可拖动的只有迷你播放条内部的进度方块。
+  const TAB_BAR_MARGIN = 16;
+  const tabBarWidth = Math.min(width - TAB_BAR_MARGIN * 2, 500); // Allow max width on tablet
+  const numTabs = state.routes.length;
+  const tabWidth = tabBarWidth / numTabs;
+
+  const indicatorPosition = useSharedValue(state.index * tabWidth);
+  const isDragging = useSharedValue(false);
+
+  useEffect(() => {
+    if (!isDragging.value) {
+      indicatorPosition.value = withSpring(state.index * tabWidth, {
+        damping: 15,
+        stiffness: 180,
+        mass: 0.8,
+      });
+    }
+  }, [state.index, tabWidth]);
+
+  const navigateToTab = (index: number) => {
+    const route = state.routes[index];
+    if (route) {
+      navigation.navigate(route.name);
+    }
+  };
+
+  const pan = Gesture.Pan()
+    .onBegin(() => {
+      isDragging.value = true;
+    })
+    .onChange((event) => {
+      const newPos = indicatorPosition.value + event.changeX;
+      const maxPos = tabWidth * (numTabs - 1);
+      indicatorPosition.value = Math.max(0, Math.min(newPos, maxPos));
+    })
+    .onFinalize(() => {
+      isDragging.value = false;
+      const nearestIndex = Math.round(indicatorPosition.value / tabWidth);
+      runOnJS(navigateToTab)(nearestIndex);
+      indicatorPosition.value = withSpring(nearestIndex * tabWidth, {
+        damping: 15,
+        stiffness: 180,
+        mass: 0.8,
+      });
+    });
+
+  const animatedIndicatorStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateX: indicatorPosition.value }],
+    };
+  });
 
   return (
-    <View style={[styles.tabBarWrap, { left: 0, right: 0, bottom: 0 }]} pointerEvents="box-none">
+    <View
+      style={[
+        styles.tabBarWrap,
+        {
+          bottom: insets.bottom + (Platform.OS === 'ios' ? 0 : 16),
+          width: tabBarWidth,
+          marginLeft: (width - tabBarWidth) / 2,
+        },
+      ]}
+      pointerEvents="box-none">
+      <GestureDetector gesture={pan}>
         <View
           style={[
             styles.card,
             {
-              height: TabBarHeight + insets.bottom,
-              paddingBottom: insets.bottom,
+              height: TabBarHeight,
               backgroundColor: liquidGlass ? 'transparent' : palette.barSurface,
-              borderTopWidth: StyleSheet.hairlineWidth,
-              borderLeftWidth: 0,
-              borderRightWidth: 0,
-              borderBottomWidth: 0,
+              borderRadius: 32,
+              borderWidth: StyleSheet.hairlineWidth,
               borderColor: palette.border,
             },
           ]}>
           {liquidGlass ? (
-            <LiquidGlassSurface radius={0} backdropTargetId={backdropTargetId} />
+            <LiquidGlassSurface radius={32} backdropTargetId={backdropTargetId} />
           ) : (
             <BlurView
               intensity={barBlur ? 75 : 0}
@@ -68,40 +196,43 @@ function FloatingGlassTabBar({
             />
           )}
 
+          {/* 滑动液态玻璃药丸指示器 */}
+          <Animated.View
+            style={[
+              StyleSheet.absoluteFill,
+              { width: tabWidth, justifyContent: 'center', alignItems: 'center', zIndex: 0 },
+              animatedIndicatorStyle,
+            ]}>
+            <View style={{ width: Math.min(tabWidth - 24, 72), height: 44, borderRadius: 24, overflow: 'hidden' }}>
+              <GlassPanel kind="liquid" variant="control" radius={24} />
+              <View
+                style={[
+                  StyleSheet.absoluteFill,
+                  {
+                    borderRadius: 24,
+                    borderWidth: 1,
+                    borderColor: 'rgba(255, 255, 255, 0.15)',
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                  },
+                ]}
+              />
+            </View>
+          </Animated.View>
+
           <View style={styles.row}>
-          {state.routes.map((route, index) => {
-            const meta = TAB_META[route.name];
-            if (!meta) return null;
-            const focused = state.index === index;
-            const tint = focused ? palette.accent : palette.textSecondary;
-
-            const onPress = () => {
-              const event = navigation.emit({
-                type: 'tabPress',
-                target: route.key,
-                canPreventDefault: true,
-              });
-              if (!focused && !event.defaultPrevented) {
-                navigation.navigate(route.name);
-              }
-            };
-
-            return (
-              <Pressable
+            {state.routes.map((route, index) => (
+              <TabItem
                 key={route.key}
-                onPress={onPress}
-                style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}>
-                <Ionicons
-                  name={focused ? meta.glyph : (`${meta.glyph}-outline` as const)}
-                  size={24}
-                  color={tint}
-                />
-                <RNText style={[styles.label, { color: tint }]}>{meta.label}</RNText>
-              </Pressable>
-            );
-          })}
+                route={route}
+                index={index}
+                state={state}
+                navigation={navigation}
+                tabWidth={tabWidth}
+              />
+            ))}
           </View>
         </View>
+      </GestureDetector>
     </View>
   );
 }
@@ -126,6 +257,7 @@ export default function TabsLayout() {
   }, []);
 
   const dockWidth = Math.min(width - 16 * 2, 680);
+  const floatingTabOffset = Platform.OS === 'ios' ? 0 : 16;
 
   return (
     <LiquidGlassBackdrop>
@@ -151,7 +283,7 @@ export default function TabsLayout() {
             style={[
               styles.dock,
               {
-                bottom: insets.bottom + TabBarHeight + DockGap,
+                bottom: insets.bottom + TabBarHeight + DockGap + floatingTabOffset,
                 width: dockWidth,
                 marginLeft: (width - dockWidth) / 2,
               },
@@ -178,16 +310,12 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'stretch',
+    zIndex: 1, // Ensure tabs receive touches above indicator
   },
   item: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
-    paddingTop: 6,
-  },
-  itemPressed: {
-    opacity: 0.55,
   },
   label: {
     fontSize: 10,
@@ -199,3 +327,4 @@ const styles = StyleSheet.create({
     left: 0,
   },
 });
+

@@ -17,6 +17,8 @@ import { EqualizerPanel } from '@/components/ui/equalizer-panel';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { LiquidGlassBackdrop } from '@/components/ui/liquid-glass';
 import { showToast } from '@/components/ui/toast';
+import { UpdateModal } from '@/components/ui/update-modal';
+import { fetchLatestRelease, type ReleaseInfo } from '@/features/update/check-update';
 import { ACCENT_PRESETS, getPalette, type AccentPreset } from '@/constants/accents';
 import { MaxContentWidth, type SchemeName } from '@/constants/theme';
 import { ensureOverlayPermission } from '@/features/android/floating-lyrics';
@@ -64,7 +66,6 @@ const PLAYER_COVER_OPTIONS = [
 ] as const satisfies readonly { value: PlayerCoverLook; label: string }[];
 
 const REPO_URL = 'https://github.com/MoeKoeMusic/MoeKoeMusic-Mobile';
-const WEBSITE_URL = 'https://music.moekoe.cn';
 const DISCLAIMER = [
   '0. 本程序是酷狗第三方客户端，并非酷狗官方，需要更完善的功能请下载官方客户端体验.',
   '1. 本项目仅供学习使用，请尊重版权，请勿利用此项目从事商业行为及非法用途！',
@@ -301,7 +302,19 @@ export default function SettingsScreen() {
   } = useSettings();
   const [loggedIn, setLoggedIn] = useState(() => isLoggedIn());
   const [aboutVisible, setAboutVisible] = useState(false);
+  const [updateVisible, setUpdateVisible] = useState(false);
+  const [releaseInfo, setReleaseInfo] = useState<ReleaseInfo | null>(null);
   const version = Constants.expoConfig?.version ?? '';
+
+  async function checkUpdate() {
+    const release = await fetchLatestRelease();
+    if (release?.hasUpdate) {
+      setReleaseInfo(release);
+      setUpdateVisible(true);
+    } else {
+      showToast('当前已是最新版本');
+    }
+  }
 
   function toggleDesktopLyrics() {
     if (desktopLyrics) {
@@ -591,9 +604,9 @@ export default function SettingsScreen() {
                 marginHorizontal={14}
               />
               <SettingsRow
-                label="官网"
-                icon="globe-outline"
-                onPress={() => openWeb(WEBSITE_URL, '官网')}
+                label="检查更新"
+                icon="sync-outline"
+                onPress={() => void checkUpdate()}
               />
               <View
                 height={StyleSheet.hairlineWidth}
@@ -674,6 +687,11 @@ export default function SettingsScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+      <UpdateModal
+        visible={updateVisible}
+        release={releaseInfo}
+        onClose={() => setUpdateVisible(false)}
+      />
       </View>
     </LiquidGlassBackdrop>
   );

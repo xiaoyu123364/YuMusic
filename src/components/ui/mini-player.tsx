@@ -1,162 +1,121 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect } from 'react';
-import { StyleSheet } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { useEffect, useState } from 'react';
+import { AppState, AppStateStatus, StyleSheet } from 'react-native';
 import Animated, {
   Easing,
   FadeInDown,
   FadeOutDown,
   cancelAnimation,
-  runOnJS,
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
   withRepeat,
-  withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import { Canvas, Path, Skia } from '@shopify/react-native-skia';
 import { Text, View, XStack, YStack } from 'tamagui';
 
 import { Artwork } from '@/components/ui/artwork';
 import { GlassPanel } from '@/components/ui/glass';
-import { useDesignSpec } from '@/features/theme/design-style';
-import { playerActions, usePlayer, usePlayerProgress } from '@/features/player/store';
-import { useIsDark, usePalette } from '@/hooks/use-palette';
 import { MaterialLoading } from '@/components/ui/loading';
+import { playerActions, usePlayer, usePlayerProgress } from '@/features/player/store';
+import { useDesignSpec } from '@/features/theme/design-style';
+import { useIsDark, usePalette } from '@/hooks/use-palette';
 
 export const MINI_PLAYER_HEIGHT = 58;
 
-// 进度线横向内缩：完全位于胶囊内部（圆角 28，顶部 y≈6 处圆角水平边界 ≈11px），
-// 左右各留 20px 安全边距，绝不压到封面/按钮，也绝不再悬在迷你条外面。
-const RAIL_INSET = 20;
-
 let lastOpenPlayerAt = 0;
 
-const SEEK_SPRING = { damping: 24, stiffness: 300 };
+function getWavyPath(
+  cx: number,
+  cy: number,
+  r: number,
+  progress: number,
+  phase: number,
+  amplitude: number,
+  freq: number
+) {
+  'worklet';
+  if (progress <= 0) return '';
+  const points = 100;
+  const totalAngle = progress * Math.PI * 2;
+  const startAngle = -Math.PI / 2;
 
-/**
- * 迷你条「内部」顶缘的可拖动进度线（Apple Music 风）：
- * 细轨道 + 圆角方形玻璃小滑钮（可拖动的方块），全部位于胶囊内部——
- * 不再作为独立元素悬在迷你条上方（那看起来像放错位置的音量条）。
- */
-function InternalProgressRail() {
+  let d = '';
+  const numSteps = Math.max(5, Math.floor(points * progress));
+
+  for (let i = 0; i <= numSteps; i++) {
+    const t = i / numSteps;
+    const angle = startAngle + t * totalAngle;
+    const waveAngle = t * totalAngle * freq - phase;
+    const wave = Math.sin(waveAngle) * amplitude;
+    
+    const currentR = r + wave;
+    const x = cx + currentR * Math.cos(angle);
+    const y = cy + currentR * Math.sin(angle);
+
+    if (i === 0) {
+      d += `M ${x} ${y}`;
+    } else {
+      d += ` L ${x} ${y}`;
+    }
+  }
+  return d;
+}
+
+function WavyProgressRing({ playing, appState }: { playing: boolean; appState: AppStateStatus }) {
   const palette = usePalette();
   const isDark = useIsDark();
-  const design = useDesignSpec();
   const { positionMs, durationMs } = usePlayerProgress();
   const ratio = durationMs > 0 ? Math.min(1, positionMs / durationMs) : 0;
 
-  const width = useSharedValue(0);
-  const dragging = useSharedValue(false);
-  const knobX = useSharedValue(0);
-  const pressed = useSharedValue(false);
+  const progressAnim = useSharedValue(0);
+  const phase = useSharedValue(0);
 
   useEffect(() => {
-    if (!dragging.value && width.value > 0) {
-      knobX.value = withTiming(ratio * width.value, { duration: 220, easing: Easing.out(Easing.quad) });
+    progressAnim.value = withTiming(ratio, { duration: 1000, easing: Easing.linear });
+  }, [ratio, progressAnim]);
+
+  useEffect(() => {
+    if (playing && appState === 'active') {
+      phase.value = withRepeat(
+        withTiming(phase.value + Math.PI * 2, { duration: 1500, easing: Easing.linear }),
+        -1,
+        false
+      );
+    } else {
+      cancelAnimation(phase);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ratio]);
+  }, [playing, appState, phase]);
 
-  function commitSeek(x: number) {
-    if (width.value <= 0 || durationMs <= 0) return;
-    const r = Math.min(Math.max(x / width.value, 0), 1);
-    playerActions.seekToMs(Math.round(r * durationMs));
-  }
+  const path = useDerivedValue(() => {
+    const d = getWavyPath(26, 26, 23, progressAnim.value, phase.value, 1.5, 12);
+    return Skia.Path.MakeFromSVGString(d) ?? Skia.Path.Make();
+  });
 
-  const pan = Gesture.Pan()
-    .minDistance(0)
-    .onTouchesDown(() => {
-      pressed.value = true;
-    })
-    .onTouchesUp(() => {
-      pressed.value = false;
-    })
-    .onBegin((event) => {
-      dragging.value = true;
-      knobX.value = Math.min(Math.max(event.x, 0), width.value);
-    })
-    .onUpdate((event) => {
-      knobX.value = Math.min(Math.max(event.x, 0), width.value);
-    })
-    .onFinalize((event) => {
-      dragging.value = false;
-      runOnJS(commitSeek)(event.x);
-    });
-
-  const knobStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: knobX.value },
-      { scale: withSpring(pressed.value ? 1.35 : 1, SEEK_SPRING) },
-    ],
-  }));
-
-  const fillStyle = useAnimatedStyle(() => ({
-    width: Math.max(knobX.value, 0),
-  }));
+  const circlePath = Skia.Path.Make();
+  circlePath.addCircle(26, 26, 23);
 
   return (
-    <GestureDetector gesture={pan}>
-      <View
-        position="absolute"
-        left={RAIL_INSET}
-        right={RAIL_INSET}
-        top={0}
-        height={18}
-        zIndex={10}
-        onLayout={(event) => {
-          width.value = event.nativeEvent.layout.width;
-        }}>
-        {/* 细轨道：y=5..7.5，中心 y≈6.25 */}
-        <View
-          position="absolute"
-          left={0}
-          right={0}
-          top={6}
-          height={2.5}
-          borderRadius={999}
-          backgroundColor={isDark ? 'rgba(255,255,255,0.20)' : 'rgba(0,0,0,0.12)'}
-          overflow="visible">
-          <Animated.View
-            style={[
-              {
-                position: 'absolute',
-                left: 0,
-                top: 0,
-                bottom: 0,
-                borderRadius: 999,
-                backgroundColor: palette.accent,
-              },
-              fillStyle,
-            ]}
-          />
-        </View>
-        {/* 可拖动的圆角方形玻璃滑钮（12×12，中心与轨道对齐 y=6，全在胶囊内部不被裁剪） */}
-        <Animated.View
-          style={[
-            {
-              position: 'absolute',
-              left: -6,
-              top: 1,
-              width: 12,
-              height: 12,
-              borderRadius: 4,
-              overflow: 'hidden',
-              backgroundColor: isDark ? 'rgba(255,255,255,0.30)' : 'rgba(255,255,255,0.70)',
-              borderWidth: StyleSheet.hairlineWidth,
-              borderColor: isDark ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.95)',
-              shadowColor: '#000000',
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: 0.25,
-              shadowRadius: 3,
-              elevation: 3,
-            },
-            knobStyle,
-          ]}>
-          <GlassPanel kind={design.barGlass} variant="control" radius={4} blurIntensity={60} />
-        </Animated.View>
-      </View>
-    </GestureDetector>
+    <View position="absolute" left={-6} top={-6} width={52} height={52} pointerEvents="none" zIndex={10}>
+      <Canvas style={{ width: 52, height: 52 }}>
+        <Path
+          path={circlePath}
+          style="stroke"
+          strokeWidth={2}
+          color={isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)'}
+        />
+        <Path
+          path={path}
+          style="stroke"
+          strokeWidth={2.5}
+          color={palette.accent}
+          strokeCap="round"
+          strokeJoin="round"
+        />
+      </Canvas>
+    </View>
   );
 }
 
@@ -166,10 +125,19 @@ export function MiniPlayer() {
   const design = useDesignSpec();
   const router = useRouter();
   const { track, playing, loading, buffering } = usePlayer();
+  
   const rotation = useSharedValue(0);
+  const [appState, setAppState] = useState(AppState.currentState);
 
   useEffect(() => {
-    if (playing) {
+    const sub = AppState.addEventListener('change', (nextState) => {
+      setAppState(nextState);
+    });
+    return () => sub.remove();
+  }, []);
+
+  useEffect(() => {
+    if (playing && appState === 'active') {
       rotation.value = withRepeat(
         withTiming(rotation.value + 360, { duration: 24000, easing: Easing.linear }),
         -1,
@@ -178,7 +146,7 @@ export function MiniPlayer() {
     } else {
       cancelAnimation(rotation);
     }
-  }, [playing, rotation]);
+  }, [playing, appState, rotation]);
 
   const spinStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rotation.value % 360}deg` }],
@@ -221,12 +189,12 @@ export function MiniPlayer() {
         onPress={openPlayer}>
         <GlassPanel kind={design.barGlass} radius={28} blurIntensity={72} />
 
-        {/* 进度线在胶囊「内部」顶缘（放在 GlassPanel 之后保证不被背景盖住） */}
-        <InternalProgressRail />
-
-        <Animated.View style={[{ width: 42, height: 42 }, spinStyle]}>
-          <Artwork uri={track.coverUrl} size={42} circle />
-        </Animated.View>
+        <View width={40} height={40}>
+          <Animated.View style={[{ width: 40, height: 40 }, spinStyle]}>
+            <Artwork uri={track.coverUrl} size={40} circle />
+          </Animated.View>
+          <WavyProgressRing playing={playing} appState={appState} />
+        </View>
 
         <YStack flex={1} gap={1}>
           <Text color={palette.text} fontSize={13.5} fontWeight="600" numberOfLines={1}>
