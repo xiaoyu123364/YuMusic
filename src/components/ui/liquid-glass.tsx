@@ -145,10 +145,10 @@ export const LiquidGlassSurface = memo(function LiquidGlassSurface({
   // KSU（KernelSU）液态玻璃配方：
   // - 强模糊 blurRadius≈25px → blurAmount ≈ (25-6)/180 ≈ 0.105
   // - 表面用主题 barSurface 色重着色（对应 miuix BlurExt 的 surface.copy(0.87f)，
-  //   这里按音乐 App 背景复杂度调低到 暗色0.60 / 亮色0.70，避免糊成奶白块）
+  //   这里按音乐 App 背景复杂度调低到 暗色0.20 / 亮色0.24，彻底激发底层物理色散效果）
   const ksuBlurAmount = 0.105;
   const tintInt = parseColorToInt(palette.barSurface);
-  const tintAlpha = isDark ? 0.6 : 0.7;
+  const tintAlpha = isDark ? 0.20 : 0.24;
 
   // Android：自研原生液态玻璃（带折射 / 色散 / 触摸弹性）。
   if (Platform.OS === 'android' && NativeLiquidGlassView) {

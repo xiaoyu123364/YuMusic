@@ -14,6 +14,7 @@ import { Text, View, XStack, YStack } from 'tamagui';
 
 import { SectionHeader } from '@/components/ui/section-header';
 import { EqualizerPanel } from '@/components/ui/equalizer-panel';
+import { GlassPanel } from '@/components/ui/glass';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { LiquidGlassBackdrop } from '@/components/ui/liquid-glass';
 import { showToast } from '@/components/ui/toast';
@@ -371,17 +372,19 @@ export default function SettingsScreen() {
           gap={18}>
           <XStack alignItems="center" gap={12}>
             <XStack
-              width={38}
-              height={38}
-              borderRadius={19}
+              width={40}
+              height={40}
+              borderRadius={20}
               alignItems="center"
               justifyContent="center"
-              backgroundColor={palette.card}
+              backgroundColor="transparent"
               borderWidth={StyleSheet.hairlineWidth}
               borderColor={palette.border}
+              overflow="hidden"
               transition="quickest"
               pressStyle={{ opacity: 0.7, scale: 0.96 }}
               onPress={() => router.back()}>
+              <GlassPanel kind="liquid" radius={20} variant="control" />
               <Ionicons name="chevron-back" size={20} color={palette.text} />
             </XStack>
             <Text color={palette.text} fontSize={26} fontWeight="800" letterSpacing={0.3}>
@@ -392,12 +395,14 @@ export default function SettingsScreen() {
           <YStack gap={10}>
             <SectionHeader title="外观" />
             <YStack
-              backgroundColor={palette.card}
+              backgroundColor="transparent"
               borderRadius={20}
               borderWidth={StyleSheet.hairlineWidth}
               borderColor={palette.border}
               padding={14}
-              gap={14}>
+              gap={14}
+              overflow="hidden">
+              <GlassPanel kind="liquid" radius={20} />
               <YStack gap={10}>
                 <Text color={palette.textSecondary} fontSize={13} fontWeight="600">
                   深色模式
@@ -470,12 +475,13 @@ export default function SettingsScreen() {
             </YStack>
 
             <YStack
-              backgroundColor={palette.card}
+              backgroundColor="transparent"
               borderRadius={20}
               borderWidth={StyleSheet.hairlineWidth}
               borderColor={palette.border}
               paddingVertical={4}
               overflow="hidden">
+              <GlassPanel kind="liquid" radius={20} />
               <ToggleRow
                 label="启用 Monet 颜色"
                 value={monetColor}
@@ -517,12 +523,13 @@ export default function SettingsScreen() {
           <YStack gap={10}>
             <SectionHeader title="播放" />
             <YStack
-              backgroundColor={palette.card}
+              backgroundColor="transparent"
               borderRadius={20}
               borderWidth={StyleSheet.hairlineWidth}
               borderColor={palette.border}
               paddingVertical={4}
               overflow="hidden">
+              <GlassPanel kind="liquid" radius={20} />
               <YStack gap={10} paddingHorizontal={14} paddingVertical={10}>
                 <Text color={palette.textSecondary} fontSize={13} fontWeight="600">
                   播放页封面形式
@@ -565,18 +572,28 @@ export default function SettingsScreen() {
 
           <YStack gap={10}>
             <SectionHeader title="音效" />
-            <EqualizerPanel />
+            <YStack
+              backgroundColor="transparent"
+              borderRadius={20}
+              borderWidth={StyleSheet.hairlineWidth}
+              borderColor={palette.border}
+              paddingVertical={14}
+              overflow="hidden">
+              <GlassPanel kind="liquid" radius={20} />
+              <EqualizerPanel />
+            </YStack>
           </YStack>
 
           <YStack gap={10}>
             <SectionHeader title="通用" />
             <YStack
-              backgroundColor={palette.card}
+              backgroundColor="transparent"
               borderRadius={20}
               borderWidth={StyleSheet.hairlineWidth}
               borderColor={palette.border}
               paddingVertical={4}
               overflow="hidden">
+              <GlassPanel kind="liquid" radius={20} />
               <SettingsRow
                 label="运行日志"
                 icon="document-text-outline"
@@ -668,14 +685,18 @@ export default function SettingsScreen() {
                 </YStack>
                 <XStack
                   height={44}
-                  borderRadius={14}
+                  borderRadius={20}
                   alignItems="center"
                   justifyContent="center"
-                  backgroundColor={palette.accent}
+                  backgroundColor="transparent"
+                  overflow="hidden"
+                  borderWidth={StyleSheet.hairlineWidth}
+                  borderColor={palette.accent}
                   transition="quickest"
                   pressStyle={{ opacity: 0.78 }}
                   onPress={() => setAboutVisible(false)}>
-                  <Text color={palette.onAccent} fontSize={14.5} fontWeight="700">
+                  <GlassPanel kind="liquid" radius={20} variant="control" />
+                  <Text color={palette.accent} fontSize={14.5} fontWeight="700">
                     关闭
                   </Text>
                 </XStack>

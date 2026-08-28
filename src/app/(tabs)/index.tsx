@@ -369,11 +369,13 @@ export default function HomeScreen() {
             <RefreshControl
               refreshing={state.refreshing}
               onRefresh={() => void refreshHome('refresh')}
-              tintColor={palette.accent}
-              colors={[palette.accent]}
-              progressBackgroundColor={palette.card}
+              tintColor="transparent"
+              colors={['transparent']}
+              progressBackgroundColor="transparent"
               progressViewOffset={insets.top}
-            />
+            >
+              <GooglePolygonSpinner size={34} color={palette.accent} />
+            </RefreshControl>
           }
           contentContainerStyle={[
             styles.content,

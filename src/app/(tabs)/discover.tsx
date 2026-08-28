@@ -15,8 +15,8 @@ import { SegmentedControl } from '@/components/ui/segmented-control';
 import { SongListItem } from '@/components/ui/song-list-item';
 import { TrackActionsSheet } from '@/components/ui/track-actions-sheet';
 import { MaxContentWidth, type AppPalette } from '@/constants/theme';
-import {
-  fetchCategoryPlaylists,
+import { GooglePolygonSpinner } from '@/components/ui/google-polygon-spinner';
+import { fetchCategoryPlaylists,
   fetchNewAlbums,
   fetchNewSongs,
   fetchPlaylistCategories,
@@ -158,13 +158,13 @@ function CategoryChip({
         paddingHorizontal={13}
         height={32}
         alignItems="center"
-        borderRadius={999}
+        borderRadius={16}
         backgroundColor={active ? palette.accentSoft : 'transparent'}
         borderWidth={StyleSheet.hairlineWidth}
         borderColor={active ? palette.accent : palette.border}
         overflow="hidden"
       >
-        <GlassPanel kind="liquid" variant="control" radius={999} />
+        <GlassPanel kind="liquid" variant="control" radius={16} />
         <Text
           color={active ? palette.accent : palette.textSecondary}
           fontSize={12.5}
@@ -292,10 +292,14 @@ function PlaylistPane({ bottomInset }: { bottomInset: number }) {
         <RefreshControl
           refreshing={refreshing}
           onRefresh={() => void onRefresh()}
-          tintColor={palette.accent}
-          colors={['#4285F4', '#EA4335', '#FBBC05', '#34A853']}
-          progressBackgroundColor={palette.card}
-        />
+          tintColor="transparent"
+          colors={['transparent']}
+          progressBackgroundColor="transparent"
+        >
+          <XStack width="100%" alignItems="center" justifyContent="center" paddingVertical={10}>
+            <GooglePolygonSpinner size={24} color={palette.accent} />
+          </XStack>
+        </RefreshControl>
       }
       onEndReachedThreshold={0.5}
       onEndReached={() => {
@@ -706,10 +710,14 @@ function NewSongPane({ bottomInset }: { bottomInset: number }) {
         <RefreshControl
           refreshing={refreshing}
           onRefresh={() => void onRefresh()}
-          tintColor={palette.accent}
-          colors={['#4285F4', '#EA4335', '#FBBC05', '#34A853']}
-          progressBackgroundColor={palette.card}
-        />
+          tintColor="transparent"
+          colors={['transparent']}
+          progressBackgroundColor="transparent"
+        >
+          <XStack width="100%" alignItems="center" justifyContent="center" paddingVertical={10}>
+            <GooglePolygonSpinner size={24} color={palette.accent} />
+          </XStack>
+        </RefreshControl>
       }
       onEndReachedThreshold={0.5}
       onEndReached={() => {
@@ -807,7 +815,39 @@ export default function DiscoverScreen() {
           <Text color={palette.text} fontSize={34} fontWeight="800" letterSpacing={0.37}>
             发现
           </Text>
-          <SegmentedControl options={DISCOVER_TABS} value={tab} onChange={switchTab} />
+          <XStack
+            height={44}
+            borderRadius={18}
+            padding={3}
+            borderWidth={StyleSheet.hairlineWidth}
+            borderColor={palette.border}
+            overflow="hidden">
+            <GlassPanel kind="liquid" radius={18} variant="bar" />
+            <XStack flex={1} zIndex={1}>
+              {DISCOVER_TABS.map((option) => {
+                const active = option.value === tab;
+                return (
+                  <XStack
+                    key={option.value}
+                    flex={1}
+                    alignItems="center"
+                    justifyContent="center"
+                    borderRadius={14}
+                    overflow="hidden"
+                    pressStyle={{ opacity: 0.6 }}
+                    onPress={() => switchTab(option.value)}>
+                    {active && <GlassPanel kind="liquid" variant="control" radius={14} />}
+                    <Text
+                      color={active ? palette.text : palette.textTertiary}
+                      fontSize={13.5}
+                      fontWeight={active ? '700' : '500'}>
+                      {option.label}
+                    </Text>
+                  </XStack>
+                );
+              })}
+            </XStack>
+          </XStack>
         </YStack>
 
         {mounted.includes('playlist') ? (

@@ -23,7 +23,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text, View, XStack, YStack } from 'tamagui';
+import { Text, View, XStack, YStack, Slider } from 'tamagui';
 
 import { Artwork } from '@/components/ui/artwork';
 import { CommentSheet } from '@/components/ui/comment-sheet';
@@ -249,20 +249,43 @@ function PlaybackProgress() {
 
   return (
     <YStack gap={7}>
-      <StyledSlider
-        value={shownPosition}
+      <Slider
+        size="$2"
+        value={[Math.min(shownPosition, Math.max(durationMs, 1))]}
         max={Math.max(durationMs, 1)}
-        flowing={playing}
-        onChange={(next) => {
-          dragValueRef.current = next;
-          setDragValue(next);
+        step={1}
+        disabled={!durationMs}
+        onValueChange={(values) => {
+          dragValueRef.current = values[0];
+          setDragValue(values[0]);
         }}
-        onCommit={(committed) => {
-          playerActions.seekToMs(committed);
+        onSlideEnd={() => {
+          if (dragValueRef.current !== null) {
+            playerActions.seekToMs(dragValueRef.current);
+          }
           dragValueRef.current = null;
           setTimeout(() => setDragValue(null), 180);
-        }}
-      />
+        }}>
+        <Slider.Track backgroundColor="transparent" height={6} borderRadius={999} overflow="hidden">
+          <GlassPanel kind="liquid" variant="bar" radius={999} />
+          <Slider.TrackActive backgroundColor={palette.accent} opacity={0.7} />
+        </Slider.Track>
+        <Slider.Thumb
+          index={0}
+          size={18}
+          circular
+          backgroundColor="transparent"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor={palette.border}
+          overflow="hidden"
+          shadowColor="#000000"
+          shadowOpacity={0.15}
+          shadowRadius={6}
+          shadowOffset={{ width: 0, height: 2 }}
+        >
+          <GlassPanel kind="liquid" variant="control" radius={9} />
+        </Slider.Thumb>
+      </Slider>
       <XStack justifyContent="space-between">
         <Text color={palette.textTertiary} fontSize={11} fontVariant={['tabular-nums']}>
           {formatClock(shownPosition)}
@@ -294,11 +317,33 @@ function VolumeControl() {
         color={palette.textTertiary}
       />
       <View flex={1}>
-        <StyledSlider
-          value={volume}
+        <Slider
+          size="$2"
+          value={[volume]}
           max={100}
-          onChange={apply}
-        />
+          step={1}
+          onValueChange={(values) => apply(values[0])}
+        >
+          <Slider.Track backgroundColor="transparent" height={6} borderRadius={999} overflow="hidden">
+            <GlassPanel kind="liquid" variant="bar" radius={999} />
+            <Slider.TrackActive backgroundColor={palette.accent} opacity={0.7} />
+          </Slider.Track>
+          <Slider.Thumb
+            index={0}
+            size={18}
+            circular
+            backgroundColor="transparent"
+            borderWidth={StyleSheet.hairlineWidth}
+            borderColor={palette.border}
+            overflow="hidden"
+            shadowColor="#000000"
+            shadowOpacity={0.15}
+            shadowRadius={6}
+            shadowOffset={{ width: 0, height: 2 }}
+          >
+            <GlassPanel kind="liquid" variant="control" radius={9} />
+          </Slider.Thumb>
+        </Slider>
       </View>
       <MaterialCommunityIcons name="volume-high" size={24} color={palette.textTertiary} />
     </XStack>
@@ -609,7 +654,7 @@ export default function PlayerScreen() {
               elevation: 12,
             }}>
             {/* 玻璃背景层 */}
-            <GlassPanel kind={glassKind} radius={28} variant="bar" />
+            <GlassPanel kind="liquid" radius={28} />
 
             {/* 歌曲信息 */}
             <YStack gap={1}>

@@ -55,17 +55,20 @@ function WavyProgressRing({ playing, appState }: { playing: boolean; appState: A
   const path = useDerivedValue(() => {
     const skPath = Skia.Path.Make();
     const center = 24;
-    const baseRadius = 21;
+    const baseRadius = 21; // 48x48 容器中的半徑 21，線寬 2.5
     const segments = 120;
     const waves = 8;
     const amplitude = 1.8;
     
-    for (let i = 0; i <= segments; i++) {
+    // 只绘制到当前进度
+    const currentSegments = Math.floor(segments * progressAnim.value);
+    
+    for (let i = 0; i <= currentSegments; i++) {
       const t = i / segments;
       const angle = t * Math.PI * 2 - Math.PI / 2;
       
-      const isProgressArea = t <= progressAnim.value;
-      const wave = isProgressArea ? Math.sin(t * Math.PI * 2 * waves + phaseAnim.value) * amplitude : 0;
+      // 随播放进度波动的正弦波
+      const wave = Math.sin(t * Math.PI * 2 * waves + phaseAnim.value) * amplitude;
       
       const r = baseRadius + wave;
       const x = center + r * Math.cos(angle);
@@ -88,7 +91,10 @@ function WavyProgressRing({ playing, appState }: { playing: boolean; appState: A
     return skPath;
   });
 
-  const trackColor = isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.12)';
+  // 背景轨道：极淡的半透明圆环
+  const trackColor = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)';
+  // 进度波浪颜色：主题主色或高透白光，绝无粉红刺眼外圈
+  const progressColor = isDark ? 'rgba(255,255,255,0.9)' : palette.accent;
 
   return (
     <View
@@ -101,7 +107,9 @@ function WavyProgressRing({ playing, appState }: { playing: boolean; appState: A
       zIndex={10}>
       <Canvas style={{ width: 48, height: 48 }}>
         <Path path={trackPath} style="stroke" strokeWidth={2.5} color={trackColor} />
-        <Path path={path} style="stroke" strokeWidth={2.5} color={palette.accent} strokeCap="round" strokeJoin="round" />
+        {progressAnim.value > 0 && (
+          <Path path={path} style="stroke" strokeWidth={2.5} color={progressColor} strokeCap="round" strokeJoin="round" />
+        )}
       </Canvas>
     </View>
   );

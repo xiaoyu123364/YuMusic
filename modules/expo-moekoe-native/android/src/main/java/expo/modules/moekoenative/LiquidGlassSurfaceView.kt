@@ -100,17 +100,17 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
         float r = min(iCorner, min(halfSize.x, halfSize.y));
         vec2 p = fragCoord - halfSize;
         float d = sdRoundRect(p, halfSize, r);
-        float band = min(iResolution.x, iResolution.y) * 0.28;
+        float band = min(iResolution.x, iResolution.y) * 0.32;
         float edge = smoothstep(-band, 0.0, d);
         float e = 1.5;
         float nx = sdRoundRect(p + vec2(e, 0.0), halfSize, r) - sdRoundRect(p - vec2(e, 0.0), halfSize, r);
         float ny = sdRoundRect(p + vec2(0.0, e), halfSize, r) - sdRoundRect(p - vec2(0.0, e), halfSize, r);
         vec2 n = normalize(vec2(nx, ny) + vec2(1e-5));
         
-        // 纯正 Kyant0 物理透镜折射与 RGB 背景色散
+        // Kyant0 物理透镜折射与 RGB 色散 (Chromatic Dispersion)
         vec2 off = -n * (iLens * edge);
         vec2 base = fragCoord + off;
-        vec2 disp = n * (iAberration * edge * 2.8);
+        vec2 disp = n * (iAberration * edge * 4.0);
         vec3 col;
         col.r = content.eval(clamp(base + disp, vec2(0.0), iResolution)).r;
         col.g = content.eval(clamp(base, vec2(0.0), iResolution)).g;
@@ -118,15 +118,15 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
         col = sat(col, iVibrancy);
         
         // 菲涅尔自然微光
-        float fresnel = pow(edge, 2.5);
-        col += vec3(fresnel * 0.16);
+        float fresnel = pow(edge, 2.2);
+        col += vec3(fresnel * 0.18);
         
-        // 斜向光源镜面反光
+        // 顶部环境镜面反射
         vec2 lightDir = normalize(vec2(0.35, -0.65));
-        float spec = pow(max(0.0, dot(n, -lightDir)), 14.0) * edge;
-        col += vec3(spec * 0.32);
+        float spec = pow(max(0.0, dot(n, -lightDir)), 16.0) * edge;
+        col += vec3(spec * 0.36);
         
-        float rimDark = smoothstep(-band * 0.5, 0.0, d) * 0.10;
+        float rimDark = smoothstep(-band * 0.5, 0.0, d) * 0.08;
         col *= (1.0 - rimDark);
         return vec4(col, 1.0);
       }
@@ -526,11 +526,11 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
 
   /** 玻璃质感：主题色磨砂填充（KSU 配方）+ 沿圆角描边的浅色高光。 */
   private fun drawGlassOverlay(canvas: Canvas, w: Float, h: Float) {
-    // 1. 半透明磨砂底色
+    // 1. 半透明高透磨砂底色（Kyant0 官方规范 alpha 0.18~0.22，保证高透光与色散可见）
     val resolvedAlpha = if (surfaceTintAlpha >= 0f) {
       (surfaceTintAlpha.coerceIn(0f, 1f) * 255f).toInt().coerceIn(0, 255)
     } else {
-      (saturation / 150f * 20f).toInt().coerceIn(6, 36)
+      45 // 约 0.18
     }
     val tintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
       style = Paint.Style.FILL
@@ -549,8 +549,8 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
       shader = LinearGradient(
         0f, 0f, w * 0.7f, h * 0.7f,
         intArrayOf(
-          Color.argb(40, 255, 255, 255),
-          Color.argb(10, 255, 255, 255),
+          Color.argb(35, 255, 255, 255),
+          Color.argb(8, 255, 255, 255),
           Color.argb(0, 255, 255, 255)
         ),
         floatArrayOf(0f, 0.4f, 1f),
@@ -559,7 +559,7 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
     }
     canvas.drawRect(0f, 0f, w, h, sheenPaint)
 
-    // 3. 自然清亮高光微晶边框（绝非死板假彩虹）
+    // 3. 自然清亮高光微晶边框
     if (enableEdgeHighlight) {
       val stroke = bevelWidth.coerceAtLeast(1.0f)
       val rim = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -568,9 +568,9 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
         shader = LinearGradient(
           0f, 0f, 0f, h,
           intArrayOf(
-            Color.argb(90, 255, 255, 255),
-            Color.argb(45, 255, 255, 255),
-            Color.argb(15, 255, 255, 255)
+            Color.argb(80, 255, 255, 255),
+            Color.argb(35, 255, 255, 255),
+            Color.argb(10, 255, 255, 255)
           ),
           floatArrayOf(0f, 0.45f, 1f),
           Shader.TileMode.CLAMP
@@ -587,7 +587,7 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
       style = Paint.Style.FILL
       shader = LinearGradient(
         0f, 0f, 0f, (h * 0.2f).coerceAtLeast(10f),
-        intArrayOf(Color.argb(35, 255, 255, 255), Color.argb(0, 255, 255, 255)),
+        intArrayOf(Color.argb(30, 255, 255, 255), Color.argb(0, 255, 255, 255)),
         null,
         Shader.TileMode.CLAMP
       )
