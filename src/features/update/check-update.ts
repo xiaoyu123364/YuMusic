@@ -1,5 +1,8 @@
 import Constants from 'expo-constants';
 import * as Linking from 'expo-linking';
+import { File, Paths } from 'expo-file-system';
+import { Platform } from 'react-native';
+import { isNativeAvailable, moekoeNative } from '@/features/android/native';
 
 export type ReleaseInfo = {
   tagName: string;
@@ -73,4 +76,46 @@ export async function fetchLatestRelease(): Promise<ReleaseInfo | null> {
 
 export function openDownloadUrl(url: string) {
   void Linking.openURL(url).catch(() => undefined);
+}
+
+export async function downloadAndInstallApk(
+  downloadUrl: string,
+  versionName: string,
+  onProgress?: (progress: number) => void
+): Promise<boolean> {
+  try {
+    const fileName = `YuMusic-${versionName}.apk`;
+    const targetFile = new File(Paths.cache, fileName);
+    
+    // 如果已存在且有效，先删除或复用
+    if (targetFile.exists) {
+      try {
+        targetFile.delete();
+      } catch {}
+    }
+
+    const task = File.createDownloadTask(downloadUrl, targetFile, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 YuMusic-App',
+        Accept: 'application/octet-stream',
+      },
+    });
+
+    // 轮询下载任务或者 downloadAsync
+    const result = await task.downloadAsync();
+    if (!result || !targetFile.exists) {
+      return false;
+    }
+
+    onProgress?.(1.0);
+
+    // Android: 自动调起系统安装器
+    if (Platform.OS === 'android' && isNativeAvailable()) {
+      return moekoeNative.installApk(targetFile.uri);
+    }
+    return true;
+  } catch (error) {
+    console.error('下载安装包失败', error);
+    return false;
+  }
 }

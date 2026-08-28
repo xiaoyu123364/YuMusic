@@ -391,6 +391,32 @@ class ExpoMoekoeNativeModule : Module() {
       }
       return@Function saveToPublicDownloads(context, src, "$displayName.$ext", mime)
     }
+
+    Function("installApk") { filePath: String ->
+      val context = appContext.reactContext ?: return@Function false
+      try {
+        val file = File(uriToPath(filePath))
+        if (!file.exists() || file.length() == 0L) {
+          Log.e("Update", "APK 文件不存在或为空: $filePath")
+          return@Function false
+        }
+        val uri: Uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+          FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        } else {
+          Uri.fromFile(file)
+        }
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+          setDataAndType(uri, "application/vnd.android.package-archive")
+          addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+          addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+        true
+      } catch (e: Exception) {
+        Log.e("Update", "调起 APK 安装失败", e)
+        false
+      }
+    }
   }
 
   private fun uriToPath(uri: String): String {

@@ -47,6 +47,7 @@ type NativeExpoMoekoe = {
   stopSpectrum: () => void;
   shareAudioFiles: (files: string[]) => boolean;
   saveToPublicDownloads: (sourcePath: string, displayName: string) => string | null;
+  installApk: (filePath: string) => boolean;
   addListener: (event: string, listener: (payload?: unknown) => void) => EventSubscription;
   removeListener: (event: string, listener: (payload?: unknown) => void) => void;
 };
@@ -119,6 +120,7 @@ export const moekoeNative: NativeExpoMoekoe = native ?? {
   stopSpectrum: noop,
   shareAudioFiles: () => false,
   saveToPublicDownloads: () => null,
+  installApk: () => false,
   addListener: () => ({ remove: noop }),
   removeListener: noop,
 };

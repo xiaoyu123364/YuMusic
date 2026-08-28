@@ -1,86 +1,84 @@
 import React, { useEffect } from 'react';
-import { Canvas, Path, Skia } from '@shopify/react-native-skia';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
   withTiming,
+  withSequence,
   Easing,
-  useDerivedValue,
+  interpolate,
 } from 'react-native-reanimated';
+import { View } from 'tamagui';
 
 interface GooglePolygonSpinnerProps {
   size?: number;
   color?: string;
 }
 
-function getRadius(theta: number, shape: number): number {
-  if (shape === 0) return 1 + 0.5 * Math.cos(4 * theta); // 四角平滑星形
-  if (shape === 1) return 1 + 0.1 * Math.cos(4 * theta); // 圆角正方形
-  if (shape === 2) return 1 + 0.3 * Math.cos(8 * theta); // 八角花瓣
-  return 1; // 圆形液滴
-}
-
-export function GooglePolygonSpinner({ size = 32, color = '#4285F4' }: GooglePolygonSpinnerProps) {
+export function GooglePolygonSpinner({ size = 34, color = '#FA233B' }: GooglePolygonSpinnerProps) {
   const rotation = useSharedValue(0);
-  const progress = useSharedValue(0);
+  const morphProgress = useSharedValue(0);
 
   useEffect(() => {
     rotation.value = withRepeat(
       withTiming(360, {
-        duration: 3000,
+        duration: 2400,
         easing: Easing.bezier(0.4, 0, 0.2, 1),
       }),
       -1,
       false
     );
-    progress.value = withRepeat(
-      withTiming(4, {
-        duration: 4000,
-        easing: Easing.inOut(Easing.ease),
-      }),
+
+    morphProgress.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 800, easing: Easing.inOut(Easing.quad) }),
+        withTiming(2, { duration: 800, easing: Easing.inOut(Easing.quad) }),
+        withTiming(3, { duration: 800, easing: Easing.inOut(Easing.quad) }),
+        withTiming(0, { duration: 800, easing: Easing.inOut(Easing.quad) })
+      ),
       -1,
       false
     );
-  }, []);
+  }, [rotation, morphProgress]);
 
-  const animatedStyle = useAnimatedStyle(() => ({
+  const spinStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rotation.value}deg` }],
     width: size,
     height: size,
+    alignItems: 'center',
+    justifyContent: 'center',
   }));
 
-  const path = useDerivedValue(() => {
-    const p = progress.value;
-    const center = size / 2;
-    const baseRadius = size * 0.35;
-    
-    const shapeId = Math.floor(p) % 4;
-    const nextShapeId = (shapeId + 1) % 4;
-    const t = p - Math.floor(p);
+  const shape1Style = useAnimatedStyle(() => {
+    const scale = interpolate(morphProgress.value, [0, 1, 2, 3], [1, 0.75, 1.1, 0.85]);
+    const radius = interpolate(morphProgress.value, [0, 1, 2, 3], [size * 0.45, size * 0.15, size * 0.35, size * 0.5]);
+    return {
+      width: size * 0.8,
+      height: size * 0.8,
+      borderRadius: radius,
+      backgroundColor: color,
+      transform: [{ scale }],
+    };
+  });
 
-    const skPath = Skia.Path.Make();
-    const resolution = 60;
-    for (let i = 0; i <= resolution; i++) {
-      const theta = (i / resolution) * Math.PI * 2;
-      const r1 = getRadius(theta, shapeId);
-      const r2 = getRadius(theta, nextShapeId);
-      const r = baseRadius * (r1 * (1 - t) + r2 * t);
-      
-      const x = center + r * Math.cos(theta);
-      const y = center + r * Math.sin(theta);
-      if (i === 0) skPath.moveTo(x, y);
-      else skPath.lineTo(x, y);
-    }
-    skPath.close();
-    return skPath;
+  const shape2Style = useAnimatedStyle(() => {
+    const scale = interpolate(morphProgress.value, [0, 1, 2, 3], [0.8, 1.05, 0.7, 1]);
+    const rotate = interpolate(morphProgress.value, [0, 1, 2, 3], [45, 90, 135, 180]);
+    return {
+      position: 'absolute',
+      width: size * 0.65,
+      height: size * 0.65,
+      borderRadius: size * 0.2,
+      backgroundColor: color,
+      opacity: 0.75,
+      transform: [{ rotate: `${rotate}deg` }, { scale }],
+    };
   });
 
   return (
-    <Animated.View style={animatedStyle}>
-      <Canvas style={{ flex: 1 }}>
-        <Path path={path} color={color} style="fill" />
-      </Canvas>
+    <Animated.View style={spinStyle}>
+      <Animated.View style={shape1Style} />
+      <Animated.View style={shape2Style} />
     </Animated.View>
   );
 }

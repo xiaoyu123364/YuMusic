@@ -8,12 +8,10 @@ import Animated, {
   FadeOutDown,
   cancelAnimation,
   useAnimatedStyle,
-  useDerivedValue,
   useSharedValue,
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import { Canvas, Path, Skia } from '@shopify/react-native-skia';
 import { Text, View, XStack, YStack } from 'tamagui';
 
 import { Artwork } from '@/components/ui/artwork';
@@ -27,95 +25,53 @@ export const MINI_PLAYER_HEIGHT = 58;
 
 let lastOpenPlayerAt = 0;
 
-function getWavyPath(
-  cx: number,
-  cy: number,
-  r: number,
-  progress: number,
-  phase: number,
-  amplitude: number,
-  freq: number
-) {
-  'worklet';
-  if (progress <= 0) return '';
-  const points = 100;
-  const totalAngle = progress * Math.PI * 2;
-  const startAngle = -Math.PI / 2;
-
-  let d = '';
-  const numSteps = Math.max(5, Math.floor(points * progress));
-
-  for (let i = 0; i <= numSteps; i++) {
-    const t = i / numSteps;
-    const angle = startAngle + t * totalAngle;
-    const waveAngle = t * totalAngle * freq - phase;
-    const wave = Math.sin(waveAngle) * amplitude;
-    
-    const currentR = r + wave;
-    const x = cx + currentR * Math.cos(angle);
-    const y = cy + currentR * Math.sin(angle);
-
-    if (i === 0) {
-      d += `M ${x} ${y}`;
-    } else {
-      d += ` L ${x} ${y}`;
-    }
-  }
-  return d;
-}
-
 function WavyProgressRing({ playing, appState }: { playing: boolean; appState: AppStateStatus }) {
   const palette = usePalette();
-  const isDark = useIsDark();
   const { positionMs, durationMs } = usePlayerProgress();
   const ratio = durationMs > 0 ? Math.min(1, positionMs / durationMs) : 0;
 
   const progressAnim = useSharedValue(0);
-  const phase = useSharedValue(0);
+  const pulseAnim = useSharedValue(1);
 
   useEffect(() => {
-    progressAnim.value = withTiming(ratio, { duration: 1000, easing: Easing.linear });
+    progressAnim.value = withTiming(ratio, { duration: 800, easing: Easing.out(Easing.quad) });
   }, [ratio, progressAnim]);
 
   useEffect(() => {
     if (playing && appState === 'active') {
-      phase.value = withRepeat(
-        withTiming(phase.value + Math.PI * 2, { duration: 1500, easing: Easing.linear }),
+      pulseAnim.value = withRepeat(
+        withTiming(1.08, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
         -1,
-        false
+        true
       );
     } else {
-      cancelAnimation(phase);
+      cancelAnimation(pulseAnim);
+      pulseAnim.value = 1;
     }
-  }, [playing, appState, phase]);
+  }, [playing, appState, pulseAnim]);
 
-  const path = useDerivedValue(() => {
-    const d = getWavyPath(26, 26, 23, progressAnim.value, phase.value, 1.5, 12);
-    return Skia.Path.MakeFromSVGString(d) ?? Skia.Path.Make();
-  });
-
-  const circlePath = Skia.Path.Make();
-  circlePath.addCircle(26, 26, 23);
+  const ringStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseAnim.value }],
+    opacity: playing ? 1 : 0.6,
+  }));
 
   return (
-    <View position="absolute" left={-6} top={-6} width={52} height={52} pointerEvents="none" zIndex={10}>
-      <Canvas style={{ width: 52, height: 52 }}>
-        <Path
-          path={circlePath}
-          style="stroke"
-          strokeWidth={2}
-          color={isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)'}
-        />
-        <Path
-          path={path}
-          style="stroke"
-          strokeWidth={2.5}
-          color={palette.accent}
-          strokeCap="round"
-          strokeJoin="round"
-        />
-      </Canvas>
-    </View>
+    <Animated.View
+      style={[
+        {
+          position: 'absolute',
+          left: -4,
+          top: -4,
+          width: 48,
+          height: 48,
+          borderRadius: 24,
+          borderWidth: 2,
+          borderColor: palette.accent,
+          pointerEvents: 'none',
+        },
+        ringStyle,
+      ]}
+    />
   );
 }
 
@@ -125,15 +81,16 @@ export function MiniPlayer() {
   const design = useDesignSpec();
   const router = useRouter();
   const { track, playing, loading, buffering } = usePlayer();
-  
   const rotation = useSharedValue(0);
-  const [appState, setAppState] = useState(AppState.currentState);
+  const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
 
   useEffect(() => {
-    const sub = AppState.addEventListener('change', (nextState) => {
-      setAppState(nextState);
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      setAppState(nextAppState);
     });
-    return () => sub.remove();
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   useEffect(() => {
@@ -189,11 +146,11 @@ export function MiniPlayer() {
         onPress={openPlayer}>
         <GlassPanel kind={design.barGlass} radius={28} blurIntensity={72} />
 
-        <View width={40} height={40}>
+        <View width={40} height={40} alignItems="center" justifyContent="center">
+          <WavyProgressRing playing={playing} appState={appState} />
           <Animated.View style={[{ width: 40, height: 40 }, spinStyle]}>
             <Artwork uri={track.coverUrl} size={40} circle />
           </Animated.View>
-          <WavyProgressRing playing={playing} appState={appState} />
         </View>
 
         <YStack flex={1} gap={1}>
