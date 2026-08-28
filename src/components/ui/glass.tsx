@@ -44,10 +44,10 @@ export function GlassPanel({
       <LiquidGlassSurface
         radius={radius}
         backdropTargetId={backdropTargetId}
-        refractionHeight={variant === 'control' ? 18 : 64}
-        bevelWidth={variant === 'control' ? 5 : 16}
-        dispersionStrength={variant === 'control' ? 0.05 : 0.12}
-        aberrationIntensity={variant === 'control' ? 1 : 2.2}
+        refractionHeight={variant === 'control' ? 32 : 64}
+        bevelWidth={variant === 'control' ? 8 : 16}
+        dispersionStrength={0.35}
+        aberrationIntensity={6.0}
         style={style}
       />
     );

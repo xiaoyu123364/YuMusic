@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { AppState, AppStateStatus, StyleSheet } from 'react-native';
 import Animated, {
   Easing,
@@ -11,6 +11,7 @@ import Animated, {
   useSharedValue,
   withRepeat,
   withTiming,
+  type SharedValue,
 } from 'react-native-reanimated';
 import { Text, View, XStack, YStack } from 'tamagui';
 
@@ -25,53 +26,97 @@ export const MINI_PLAYER_HEIGHT = 58;
 
 let lastOpenPlayerAt = 0;
 
+const NUM_DOTS = 24;
+
+const WavyDot = memo(function WavyDot({
+  index,
+  total,
+  progressAnim,
+  phaseAnim,
+  accentColor,
+  trackColor,
+}: {
+  index: number;
+  total: number;
+  progressAnim: SharedValue<number>;
+  phaseAnim: SharedValue<number>;
+  accentColor: string;
+  trackColor: string;
+}) {
+  const theta = (index / total) * Math.PI * 2 - Math.PI / 2;
+
+  const dotStyle = useAnimatedStyle(() => {
+    const active = (index / total) <= progressAnim.value;
+    const wave = Math.sin((index / total) * Math.PI * 6 + phaseAnim.value);
+    const r = 23 + (active ? wave * 2.2 : 0);
+    const x = 24 + r * Math.cos(theta) - 2;
+    const y = 24 + r * Math.sin(theta) - 2;
+    const scale = active ? 1 + wave * 0.25 : 0.8;
+
+    return {
+      position: 'absolute',
+      left: x,
+      top: y,
+      width: 4,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: active ? accentColor : trackColor,
+      transform: [{ scale }],
+      opacity: active ? 1 : 0.45,
+    };
+  });
+
+  return <Animated.View style={dotStyle} />;
+});
+
 function WavyProgressRing({ playing, appState }: { playing: boolean; appState: AppStateStatus }) {
   const palette = usePalette();
+  const isDark = useIsDark();
   const { positionMs, durationMs } = usePlayerProgress();
-  const ratio = durationMs > 0 ? Math.min(1, positionMs / durationMs) : 0;
+  const ratio = durationMs > 0 ? Math.min(1, Math.max(0, positionMs / durationMs)) : 0;
 
   const progressAnim = useSharedValue(0);
-  const pulseAnim = useSharedValue(1);
+  const phaseAnim = useSharedValue(0);
 
   useEffect(() => {
-    progressAnim.value = withTiming(ratio, { duration: 800, easing: Easing.out(Easing.quad) });
+    progressAnim.value = withTiming(ratio, { duration: 600, easing: Easing.out(Easing.quad) });
   }, [ratio, progressAnim]);
 
   useEffect(() => {
     if (playing && appState === 'active') {
-      pulseAnim.value = withRepeat(
-        withTiming(1.08, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+      phaseAnim.value = withRepeat(
+        withTiming(phaseAnim.value - Math.PI * 2, { duration: 2400, easing: Easing.linear }),
         -1,
-        true
+        false
       );
     } else {
-      cancelAnimation(pulseAnim);
-      pulseAnim.value = 1;
+      cancelAnimation(phaseAnim);
     }
-  }, [playing, appState, pulseAnim]);
+  }, [playing, appState, phaseAnim]);
 
-  const ringStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pulseAnim.value }],
-    opacity: playing ? 1 : 0.6,
-  }));
+  const trackColor = isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.12)';
 
   return (
-    <Animated.View
-      style={[
-        {
-          position: 'absolute',
-          left: -4,
-          top: -4,
-          width: 48,
-          height: 48,
-          borderRadius: 24,
-          borderWidth: 2,
-          borderColor: palette.accent,
-          pointerEvents: 'none',
-        },
-        ringStyle,
-      ]}
-    />
+    <View
+      position="absolute"
+      left={-4}
+      top={-4}
+      width={48}
+      height={48}
+      pointerEvents="none"
+      zIndex={10}>
+      {Array.from({ length: NUM_DOTS }).map((_, i) => (
+        <WavyDot
+          key={i}
+          index={i}
+          total={NUM_DOTS}
+          progressAnim={progressAnim}
+          phaseAnim={phaseAnim}
+          accentColor={palette.accent}
+          trackColor={trackColor}
+        />
+      ))}
+    </View>
   );
 }
 

@@ -100,23 +100,35 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
         float r = min(iCorner, min(halfSize.x, halfSize.y));
         vec2 p = fragCoord - halfSize;
         float d = sdRoundRect(p, halfSize, r);
-        float band = min(iResolution.x, iResolution.y) * 0.32;
+        float band = min(iResolution.x, iResolution.y) * 0.38;
         float edge = smoothstep(-band, 0.0, d);
         float e = 1.5;
         float nx = sdRoundRect(p + vec2(e, 0.0), halfSize, r) - sdRoundRect(p - vec2(e, 0.0), halfSize, r);
         float ny = sdRoundRect(p + vec2(0.0, e), halfSize, r) - sdRoundRect(p - vec2(0.0, e), halfSize, r);
         vec2 n = normalize(vec2(nx, ny) + vec2(1e-5));
+        
+        // 物理折射与色散位移
         vec2 off = -n * (iLens * edge);
         vec2 base = fragCoord + off;
-        vec2 disp = n * (iAberration * edge * 2.5);
+        vec2 disp = n * (iAberration * edge * 4.5);
         vec3 col;
         col.r = content.eval(clamp(base + disp, vec2(0.0), iResolution)).r;
         col.g = content.eval(clamp(base, vec2(0.0), iResolution)).g;
         col.b = content.eval(clamp(base - disp, vec2(0.0), iResolution)).b;
         col = sat(col, iVibrancy);
-        // 沿圆角边缘做微弱暗化（rim darkening），让玻璃呈现"有厚度/内陷"的真实感，
-        // 而不是边缘平整的白块。
-        float rimDark = smoothstep(-band * 0.55, 0.0, d) * 0.14;
+        
+        // 菲涅尔多光谱彩虹色散与边缘反射高光
+        float fresnel = pow(edge, 2.0);
+        vec3 rainbow = 0.5 + 0.5 * cos(6.28318 * (fresnel * 1.5 + vec3(0.0, 0.33, 0.67)));
+        col += rainbow * (fresnel * 0.35);
+        
+        // 镜面反射光
+        vec2 lightDir = normalize(vec2(0.35, -0.65));
+        float spec = pow(max(0.0, dot(n, -lightDir)), 12.0) * edge;
+        col += vec3(spec * 0.65);
+        
+        // 边缘厚度感暗化
+        float rimDark = smoothstep(-band * 0.55, 0.0, d) * 0.12;
         col *= (1.0 - rimDark);
         return vec4(col, 1.0);
       }
@@ -516,8 +528,7 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
 
   /** 玻璃质感：主题色磨砂填充（KSU 配方）+ 沿圆角描边的浅色高光。 */
   private fun drawGlassOverlay(canvas: Canvas, w: Float, h: Float) {
-    // KSU 式重着色：surfaceTintAlpha 由 JS 按主题下发（暗色 ~0.60 / 亮色 ~0.70）；
-    // 未下发（<0）时回退旧逻辑（saturation 推导的极淡冷白）。
+    // 1. 半透明磨砂底色
     val resolvedAlpha = if (surfaceTintAlpha >= 0f) {
       (surfaceTintAlpha.coerceIn(0f, 1f) * 255f).toInt().coerceIn(0, 255)
     } else {
@@ -534,24 +545,39 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
     }
     canvas.drawRect(0f, 0f, w, h, tintPaint)
 
+    // 2. 玻璃镜面斜向反射高光光泽（Specular Sheen）
+    val sheenPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+      style = Paint.Style.FILL
+      shader = LinearGradient(
+        0f, 0f, w * 0.8f, h * 0.8f,
+        intArrayOf(
+          Color.argb(80, 255, 255, 255),
+          Color.argb(20, 255, 255, 255),
+          Color.argb(0, 255, 255, 255)
+        ),
+        floatArrayOf(0f, 0.35f, 1f),
+        Shader.TileMode.CLAMP
+      )
+    }
+    canvas.drawRect(0f, 0f, w, h, sheenPaint)
+
+    // 3. 物理棱镜彩虹边缘色散高光（Prism Rainbow Specular Rim）
     if (enableEdgeHighlight) {
-      // 浅色渐变描边模拟边缘高光（棱镜反光），沿圆角路径绘制，
-      // 由于外部半边已被 clip 裁掉，最终呈现为内侧高光。
-      val stroke = bevelWidth.coerceAtLeast(1f)
+      val stroke = bevelWidth.coerceAtLeast(1.5f)
       val rim = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = stroke
         shader = LinearGradient(
           0f, 0f, w, h,
           intArrayOf(
-            Color.argb(160, 255, 69, 58),   // 棱镜赤红
-            Color.argb(140, 255, 159, 10),  // 棱镜金橙
-            Color.argb(130, 48, 209, 88),   // 翠绿
-            Color.argb(150, 100, 210, 255), // 冰蓝
-            Color.argb(140, 191, 90, 242),  // 紫罗兰
-            Color.argb(180, 255, 255, 255)  // 镜面高光白
+            Color.argb(210, 255, 69, 58),   // 棱镜赤红
+            Color.argb(190, 255, 159, 10),  // 棱镜金橙
+            Color.argb(180, 48, 209, 88),   // 翠绿
+            Color.argb(200, 100, 210, 255), // 冰蓝
+            Color.argb(190, 191, 90, 242),  // 紫罗兰
+            Color.argb(240, 255, 255, 255)  // 镜面高光白
           ),
-          floatArrayOf(0f, 0.2f, 0.4f, 0.65f, 0.85f, 1f),
+          floatArrayOf(0f, 0.18f, 0.38f, 0.62f, 0.82f, 1f),
           Shader.TileMode.CLAMP
         )
       }
@@ -561,17 +587,17 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
       canvas.drawPath(rimPath, rim)
     }
 
-    // 顶部轻微亮带，增强「厚度」观感
+    // 4. 顶部镜面内倒角亮带
     val topGlow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
       style = Paint.Style.FILL
       shader = LinearGradient(
-        0f, 0f, 0f, (h * 0.18f).coerceAtLeast(8f),
-        intArrayOf(Color.argb(30, 255, 255, 255), Color.argb(0, 255, 255, 255)),
+        0f, 0f, 0f, (h * 0.25f).coerceAtLeast(12f),
+        intArrayOf(Color.argb(55, 255, 255, 255), Color.argb(0, 255, 255, 255)),
         null,
         Shader.TileMode.CLAMP
       )
     }
-    canvas.drawRect(0f, 0f, w, (h * 0.18f).coerceAtLeast(8f), topGlow)
+    canvas.drawRect(0f, 0f, w, (h * 0.25f).coerceAtLeast(12f), topGlow)
   }
 
   // ---------- 盒式模糊（API<31 降级，O(w*h*r) 小图足够快） ----------
