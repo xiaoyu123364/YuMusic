@@ -100,35 +100,33 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
         float r = min(iCorner, min(halfSize.x, halfSize.y));
         vec2 p = fragCoord - halfSize;
         float d = sdRoundRect(p, halfSize, r);
-        float band = min(iResolution.x, iResolution.y) * 0.38;
+        float band = min(iResolution.x, iResolution.y) * 0.28;
         float edge = smoothstep(-band, 0.0, d);
         float e = 1.5;
         float nx = sdRoundRect(p + vec2(e, 0.0), halfSize, r) - sdRoundRect(p - vec2(e, 0.0), halfSize, r);
         float ny = sdRoundRect(p + vec2(0.0, e), halfSize, r) - sdRoundRect(p - vec2(0.0, e), halfSize, r);
         vec2 n = normalize(vec2(nx, ny) + vec2(1e-5));
         
-        // 物理折射与色散位移
+        // 纯正 Kyant0 物理透镜折射与 RGB 背景色散
         vec2 off = -n * (iLens * edge);
         vec2 base = fragCoord + off;
-        vec2 disp = n * (iAberration * edge * 4.5);
+        vec2 disp = n * (iAberration * edge * 2.8);
         vec3 col;
         col.r = content.eval(clamp(base + disp, vec2(0.0), iResolution)).r;
         col.g = content.eval(clamp(base, vec2(0.0), iResolution)).g;
         col.b = content.eval(clamp(base - disp, vec2(0.0), iResolution)).b;
         col = sat(col, iVibrancy);
         
-        // 菲涅尔多光谱彩虹色散与边缘反射高光
-        float fresnel = pow(edge, 2.0);
-        vec3 rainbow = 0.5 + 0.5 * cos(6.28318 * (fresnel * 1.5 + vec3(0.0, 0.33, 0.67)));
-        col += rainbow * (fresnel * 0.35);
+        // 菲涅尔自然微光
+        float fresnel = pow(edge, 2.5);
+        col += vec3(fresnel * 0.16);
         
-        // 镜面反射光
+        // 斜向光源镜面反光
         vec2 lightDir = normalize(vec2(0.35, -0.65));
-        float spec = pow(max(0.0, dot(n, -lightDir)), 12.0) * edge;
-        col += vec3(spec * 0.65);
+        float spec = pow(max(0.0, dot(n, -lightDir)), 14.0) * edge;
+        col += vec3(spec * 0.32);
         
-        // 边缘厚度感暗化
-        float rimDark = smoothstep(-band * 0.55, 0.0, d) * 0.12;
+        float rimDark = smoothstep(-band * 0.5, 0.0, d) * 0.10;
         col *= (1.0 - rimDark);
         return vec4(col, 1.0);
       }
@@ -545,39 +543,36 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
     }
     canvas.drawRect(0f, 0f, w, h, tintPaint)
 
-    // 2. 玻璃镜面斜向反射高光光泽（Specular Sheen）
+    // 2. 玻璃镜面斜向微光反光
     val sheenPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
       style = Paint.Style.FILL
       shader = LinearGradient(
-        0f, 0f, w * 0.8f, h * 0.8f,
+        0f, 0f, w * 0.7f, h * 0.7f,
         intArrayOf(
-          Color.argb(80, 255, 255, 255),
-          Color.argb(20, 255, 255, 255),
+          Color.argb(40, 255, 255, 255),
+          Color.argb(10, 255, 255, 255),
           Color.argb(0, 255, 255, 255)
         ),
-        floatArrayOf(0f, 0.35f, 1f),
+        floatArrayOf(0f, 0.4f, 1f),
         Shader.TileMode.CLAMP
       )
     }
     canvas.drawRect(0f, 0f, w, h, sheenPaint)
 
-    // 3. 物理棱镜彩虹边缘色散高光（Prism Rainbow Specular Rim）
+    // 3. 自然清亮高光微晶边框（绝非死板假彩虹）
     if (enableEdgeHighlight) {
-      val stroke = bevelWidth.coerceAtLeast(1.5f)
+      val stroke = bevelWidth.coerceAtLeast(1.0f)
       val rim = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = stroke
         shader = LinearGradient(
-          0f, 0f, w, h,
+          0f, 0f, 0f, h,
           intArrayOf(
-            Color.argb(210, 255, 69, 58),   // 棱镜赤红
-            Color.argb(190, 255, 159, 10),  // 棱镜金橙
-            Color.argb(180, 48, 209, 88),   // 翠绿
-            Color.argb(200, 100, 210, 255), // 冰蓝
-            Color.argb(190, 191, 90, 242),  // 紫罗兰
-            Color.argb(240, 255, 255, 255)  // 镜面高光白
+            Color.argb(90, 255, 255, 255),
+            Color.argb(45, 255, 255, 255),
+            Color.argb(15, 255, 255, 255)
           ),
-          floatArrayOf(0f, 0.18f, 0.38f, 0.62f, 0.82f, 1f),
+          floatArrayOf(0f, 0.45f, 1f),
           Shader.TileMode.CLAMP
         )
       }
@@ -591,13 +586,13 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
     val topGlow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
       style = Paint.Style.FILL
       shader = LinearGradient(
-        0f, 0f, 0f, (h * 0.25f).coerceAtLeast(12f),
-        intArrayOf(Color.argb(55, 255, 255, 255), Color.argb(0, 255, 255, 255)),
+        0f, 0f, 0f, (h * 0.2f).coerceAtLeast(10f),
+        intArrayOf(Color.argb(35, 255, 255, 255), Color.argb(0, 255, 255, 255)),
         null,
         Shader.TileMode.CLAMP
       )
     }
-    canvas.drawRect(0f, 0f, w, (h * 0.25f).coerceAtLeast(12f), topGlow)
+    canvas.drawRect(0f, 0f, w, (h * 0.2f).coerceAtLeast(10f), topGlow)
   }
 
   // ---------- 盒式模糊（API<31 降级，O(w*h*r) 小图足够快） ----------

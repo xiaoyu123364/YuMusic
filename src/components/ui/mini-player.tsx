@@ -2,16 +2,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { memo, useEffect, useState } from 'react';
 import { AppState, AppStateStatus, StyleSheet } from 'react-native';
+import { Canvas, Path, Skia } from '@shopify/react-native-skia';
 import Animated, {
   Easing,
   FadeInDown,
   FadeOutDown,
   cancelAnimation,
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
   withRepeat,
   withTiming,
-  type SharedValue,
 } from 'react-native-reanimated';
 import { Text, View, XStack, YStack } from 'tamagui';
 
@@ -25,49 +26,6 @@ import { useIsDark, usePalette } from '@/hooks/use-palette';
 export const MINI_PLAYER_HEIGHT = 58;
 
 let lastOpenPlayerAt = 0;
-
-const NUM_DOTS = 24;
-
-const WavyDot = memo(function WavyDot({
-  index,
-  total,
-  progressAnim,
-  phaseAnim,
-  accentColor,
-  trackColor,
-}: {
-  index: number;
-  total: number;
-  progressAnim: SharedValue<number>;
-  phaseAnim: SharedValue<number>;
-  accentColor: string;
-  trackColor: string;
-}) {
-  const theta = (index / total) * Math.PI * 2 - Math.PI / 2;
-
-  const dotStyle = useAnimatedStyle(() => {
-    const active = (index / total) <= progressAnim.value;
-    const wave = Math.sin((index / total) * Math.PI * 6 + phaseAnim.value);
-    const r = 23 + (active ? wave * 2.2 : 0);
-    const x = 24 + r * Math.cos(theta) - 2;
-    const y = 24 + r * Math.sin(theta) - 2;
-    const scale = active ? 1 + wave * 0.25 : 0.8;
-
-    return {
-      position: 'absolute',
-      left: x,
-      top: y,
-      width: 4,
-      height: 4,
-      borderRadius: 2,
-      backgroundColor: active ? accentColor : trackColor,
-      transform: [{ scale }],
-      opacity: active ? 1 : 0.45,
-    };
-  });
-
-  return <Animated.View style={dotStyle} />;
-});
 
 function WavyProgressRing({ playing, appState }: { playing: boolean; appState: AppStateStatus }) {
   const palette = usePalette();
@@ -94,6 +52,42 @@ function WavyProgressRing({ playing, appState }: { playing: boolean; appState: A
     }
   }, [playing, appState, phaseAnim]);
 
+  const path = useDerivedValue(() => {
+    const skPath = Skia.Path.Make();
+    const center = 24;
+    const baseRadius = 21;
+    const segments = 120;
+    const waves = 8;
+    const amplitude = 1.8;
+    
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments;
+      const angle = t * Math.PI * 2 - Math.PI / 2;
+      
+      const isProgressArea = t <= progressAnim.value;
+      const wave = isProgressArea ? Math.sin(t * Math.PI * 2 * waves + phaseAnim.value) * amplitude : 0;
+      
+      const r = baseRadius + wave;
+      const x = center + r * Math.cos(angle);
+      const y = center + r * Math.sin(angle);
+      
+      if (i === 0) {
+        skPath.moveTo(x, y);
+      } else {
+        skPath.lineTo(x, y);
+      }
+    }
+    return skPath;
+  });
+  
+  const trackPath = useDerivedValue(() => {
+    const skPath = Skia.Path.Make();
+    const center = 24;
+    const baseRadius = 21;
+    skPath.addCircle(center, center, baseRadius);
+    return skPath;
+  });
+
   const trackColor = isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.12)';
 
   return (
@@ -105,17 +99,10 @@ function WavyProgressRing({ playing, appState }: { playing: boolean; appState: A
       height={48}
       pointerEvents="none"
       zIndex={10}>
-      {Array.from({ length: NUM_DOTS }).map((_, i) => (
-        <WavyDot
-          key={i}
-          index={i}
-          total={NUM_DOTS}
-          progressAnim={progressAnim}
-          phaseAnim={phaseAnim}
-          accentColor={palette.accent}
-          trackColor={trackColor}
-        />
-      ))}
+      <Canvas style={{ width: 48, height: 48 }}>
+        <Path path={trackPath} style="stroke" strokeWidth={2.5} color={trackColor} />
+        <Path path={path} style="stroke" strokeWidth={2.5} color={palette.accent} strokeCap="round" strokeJoin="round" />
+      </Canvas>
     </View>
   );
 }
@@ -198,7 +185,7 @@ export function MiniPlayer() {
           </Animated.View>
         </View>
 
-        <YStack flex={1} gap={1}>
+        <YStack flex={1} minWidth={0} flexShrink={1} marginRight={6} gap={1} overflow="hidden">
           <Text color={palette.text} fontSize={13.5} fontWeight="600" numberOfLines={1}>
             {track.title}
           </Text>
