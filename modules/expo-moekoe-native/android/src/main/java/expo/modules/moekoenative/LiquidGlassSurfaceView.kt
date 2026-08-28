@@ -100,7 +100,7 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
         float r = min(iCorner, min(halfSize.x, halfSize.y));
         vec2 p = fragCoord - halfSize;
         float d = sdRoundRect(p, halfSize, r);
-        float band = min(iResolution.x, iResolution.y) * 0.18;
+        float band = min(iResolution.x, iResolution.y) * 0.32;
         float edge = smoothstep(-band, 0.0, d);
         float e = 1.5;
         float nx = sdRoundRect(p + vec2(e, 0.0), halfSize, r) - sdRoundRect(p - vec2(e, 0.0), halfSize, r);
@@ -108,7 +108,7 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
         vec2 n = normalize(vec2(nx, ny) + vec2(1e-5));
         vec2 off = -n * (iLens * edge);
         vec2 base = fragCoord + off;
-        vec2 disp = n * (iAberration * edge);
+        vec2 disp = n * (iAberration * edge * 2.5);
         vec3 col;
         col.r = content.eval(clamp(base + disp, vec2(0.0), iResolution)).r;
         col.g = content.eval(clamp(base, vec2(0.0), iResolution)).g;
@@ -472,8 +472,8 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
     val blur = RenderEffect.createBlurEffect(blurPx, blurPx, Shader.TileMode.CLAMP)
     val shader = getGlassShader() ?: return blur
     // 折射强度随玻璃较小边成比例（像素），色散随 enableChromaticAberration / aberrationIntensity
-    val lens = (minOf(w, h) * 0.08f).coerceIn(6f, 40f)
-    val aberr = if (enableChromaticAberration) aberrationIntensity.coerceAtLeast(0f) * 1.5f else 0f
+    val lens = (minOf(w, h) * 0.12f).coerceIn(8f, 50f)
+    val aberr = if (enableChromaticAberration) aberrationIntensity.coerceAtLeast(0f) * 3.2f else 0f
     shader.setFloatUniform("iResolution", w.toFloat(), h.toFloat())
     shader.setFloatUniform("iCorner", cornerRadius)
     shader.setFloatUniform("iLens", lens)
@@ -542,13 +542,16 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
         style = Paint.Style.STROKE
         strokeWidth = stroke
         shader = LinearGradient(
-          0f, 0f, 0f, h,
+          0f, 0f, w, h,
           intArrayOf(
-            Color.argb(120, 255, 255, 255),
-            Color.argb(28, 255, 255, 255),
-            Color.argb(72, 255, 255, 255)
+            Color.argb(160, 255, 69, 58),   // 棱镜赤红
+            Color.argb(140, 255, 159, 10),  // 棱镜金橙
+            Color.argb(130, 48, 209, 88),   // 翠绿
+            Color.argb(150, 100, 210, 255), // 冰蓝
+            Color.argb(140, 191, 90, 242),  // 紫罗兰
+            Color.argb(180, 255, 255, 255)  // 镜面高光白
           ),
-          null,
+          floatArrayOf(0f, 0.2f, 0.4f, 0.65f, 0.85f, 1f),
           Shader.TileMode.CLAMP
         )
       }

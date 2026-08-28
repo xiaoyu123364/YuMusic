@@ -27,6 +27,8 @@ export const PlaylistCard = memo(function PlaylistCard({
     <YStack
       width={width}
       gap={8}
+      minWidth={0}
+      overflow="hidden"
       transition="quickest"
       pressStyle={{ opacity: 0.75, scale: 0.98 }}
       onPress={onPress}>
@@ -56,6 +58,7 @@ export const PlaylistCard = memo(function PlaylistCard({
         fontWeight="600"
         lineHeight={18}
         numberOfLines={2}
+        flexShrink={1}
         paddingHorizontal={2}>
         {title}
       </Text>

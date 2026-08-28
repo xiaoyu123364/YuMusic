@@ -76,15 +76,16 @@ export const RankCard = memo(function RankCard({
                 fontStyle="italic">
                 {index + 1}
               </Text>
-              <YStack flex={1} gap={1}>
+              <YStack flex={1} gap={1} minWidth={0} overflow="hidden">
                 <Text
                   color={active ? palette.accent : palette.text}
                   fontSize={13.5}
                   fontWeight="600"
-                  numberOfLines={1}>
+                  numberOfLines={1}
+                  flexShrink={1}>
                   {song.title}
                 </Text>
-                <Text color={palette.textTertiary} fontSize={11.5} numberOfLines={1}>
+                <Text color={palette.textTertiary} fontSize={11.5} numberOfLines={1} flexShrink={1}>
                   {song.artist}
                 </Text>
               </YStack>

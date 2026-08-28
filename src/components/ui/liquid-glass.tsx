@@ -126,8 +126,8 @@ export const LiquidGlassSurface = memo(function LiquidGlassSurface({
   /** 倒角宽度：大表面 16；小控件建议 4~6。 */
   bevelWidth = 16,
   /** 色散强度：小控件减弱，避免小面积上出现彩边脏斑。 */
-  dispersionStrength = 0.12,
-  aberrationIntensity = 2.2,
+  dispersionStrength = 0.35,
+  aberrationIntensity = 5.0,
 }: {
   radius?: number;
   backdropTargetId?: number | null;

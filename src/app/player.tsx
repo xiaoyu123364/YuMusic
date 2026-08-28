@@ -641,7 +641,7 @@ export default function PlayerScreen() {
             <PlaybackProgress />
 
             {/* 走带控制 */}
-            <XStack alignItems="center" justifyContent="space-between" paddingHorizontal={4}>
+            <XStack alignItems="center" justifyContent="center" gap={18} paddingHorizontal={16}>
               <XStack
                 width={42}
                 height={42}
@@ -711,7 +711,7 @@ export default function PlayerScreen() {
             <VolumeControl />
 
             {/* 次级功能行 */}
-            <XStack alignItems="center" justifyContent="space-between" paddingHorizontal={6}>
+            <XStack alignItems="center" justifyContent="center" gap={12} paddingHorizontal={6}>
               <XStack
                 width={44}
                 height={40}

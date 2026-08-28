@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, View, XStack, YStack } from 'tamagui';
 
 import { Artwork } from '@/components/ui/artwork';
+import { GooglePolygonSpinner } from '@/components/ui/google-polygon-spinner';
 import { LiquidGlassBackdrop, LiquidGlassSurface } from '@/components/ui/liquid-glass';
 import { PlaylistCard } from '@/components/ui/playlist-card';
 import { RankCard } from '@/components/ui/rank-card';
@@ -107,6 +108,9 @@ function LoadingSkeletons() {
   const palette = usePalette();
   return (
     <YStack flex={1} backgroundColor={palette.background} paddingTop={100} gap={24}>
+      <XStack justifyContent="center" paddingBottom={16}>
+        <GooglePolygonSpinner size={44} color={palette.accent} />
+      </XStack>
       <YStack paddingHorizontal={16} gap={16}>
         <View height={40} width={150} borderRadius={8} backgroundColor={palette.cardAlt} />
         <View height={200} width="100%" borderRadius={16} backgroundColor={palette.cardAlt} />
@@ -153,11 +157,11 @@ function HeroBannerCard({
               justifyContent="center">
               <Ionicons name="play" size={18} color="#FFF" style={{ marginLeft: 2 }} />
             </XStack>
-            <YStack flex={1}>
-              <Text color="#FFF" fontSize={12} fontWeight="600" opacity={0.8}>
+            <YStack flex={1} minWidth={0} overflow="hidden">
+              <Text color="#FFF" fontSize={12} fontWeight="600" opacity={0.8} numberOfLines={1} flexShrink={1}>
                 精选推荐
               </Text>
-              <Text color="#FFF" fontSize={16} fontWeight="800" numberOfLines={1}>
+              <Text color="#FFF" fontSize={16} fontWeight="800" numberOfLines={1} flexShrink={1}>
                 {banner.title}
               </Text>
             </YStack>
@@ -192,15 +196,16 @@ function SmallGridSongCard({
         borderRadius={12}
         backgroundColor={active ? palette.accentSoft : 'transparent'}>
         <Artwork uri={song.coverUrl} radius={8} size={48} />
-        <YStack flex={1} gap={2}>
+        <YStack flex={1} gap={2} minWidth={0} overflow="hidden">
           <Text
             color={active ? palette.accent : palette.text}
             fontSize={14}
             fontWeight="600"
-            numberOfLines={1}>
+            numberOfLines={1}
+            flexShrink={1}>
             {song.title}
           </Text>
-          <Text color={palette.textSecondary} fontSize={12} numberOfLines={1}>
+          <Text color={palette.textSecondary} fontSize={12} numberOfLines={1} flexShrink={1}>
             {song.artist || '未知歌手'}
           </Text>
         </YStack>
@@ -233,15 +238,16 @@ function LargeRecentCard({
     <SpringPressable onPress={onPress}>
       <YStack width={width} gap={8}>
         <Artwork uri={song.coverUrl} radius={16} size={width} />
-        <YStack gap={2}>
+        <YStack gap={2} minWidth={0} overflow="hidden">
           <Text
             color={active ? palette.accent : palette.text}
             fontSize={14}
             fontWeight="600"
-            numberOfLines={1}>
+            numberOfLines={1}
+            flexShrink={1}>
             {song.title}
           </Text>
-          <Text color={palette.textSecondary} fontSize={12} numberOfLines={1}>
+          <Text color={palette.textSecondary} fontSize={12} numberOfLines={1} flexShrink={1}>
             {song.artist || '未知歌手'}
           </Text>
         </YStack>

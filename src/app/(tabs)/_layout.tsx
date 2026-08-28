@@ -112,8 +112,8 @@ function FloatingGlassTabBar({
   const liquidGlass = useLiquidGlass();
   const { width } = useWindowDimensions();
 
-  const TAB_BAR_MARGIN = 16;
-  const tabBarWidth = Math.min(width - TAB_BAR_MARGIN * 2, 500); // Allow max width on tablet
+  const TAB_BAR_MARGIN = 36;
+  const tabBarWidth = Math.min(width - TAB_BAR_MARGIN * 2, 280); // Tighter span, max width 280
   const numTabs = state.routes.length;
   const tabWidth = tabBarWidth / numTabs;
 

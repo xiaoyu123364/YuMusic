@@ -4,6 +4,10 @@ import { startTransition, useEffect, useRef, useState } from 'react';
 import { FlatList, RefreshControl, ScrollView, StyleSheet, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, View, XStack, YStack } from 'tamagui';
+import { GlassPanel } from '@/components/ui/glass';
+import { LiquidGlassBackdrop } from '@/components/ui/liquid-glass';
+import { Pressable } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
 import { Artwork } from '@/components/ui/artwork';
 import { PlaylistCard } from '@/components/ui/playlist-card';
@@ -46,6 +50,35 @@ const ALBUM_REGIONS: { value: AlbumRegion | 'all'; label: string }[] = [
   { value: 'jpn', label: '日本' },
   { value: 'kor', label: '韩国' },
 ];
+
+function SpringPressable({
+  children,
+  onPress,
+  style,
+}: {
+  children: React.ReactNode;
+  onPress?: () => void;
+  style?: any;
+}) {
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Pressable
+      onPressIn={() => {
+        scale.value = withSpring(0.95, { damping: 20, stiffness: 300 });
+      }}
+      onPressOut={() => {
+        scale.value = withSpring(1, { damping: 20, stiffness: 300 });
+      }}
+      onPress={onPress}
+      style={style}>
+      <Animated.View style={animatedStyle}>{children}</Animated.View>
+    </Pressable>
+  );
+}
 
 function useGridMetrics() {
   const { width } = useWindowDimensions();
@@ -120,24 +153,26 @@ function CategoryChip({
   onPress: () => void;
 }) {
   return (
-    <XStack
-      paddingHorizontal={13}
-      height={32}
-      alignItems="center"
-      borderRadius={999}
-      backgroundColor={active ? palette.accentSoft : palette.card}
-      borderWidth={StyleSheet.hairlineWidth}
-      borderColor={active ? palette.accent : palette.border}
-      transition="quickest"
-      pressStyle={{ opacity: 0.7, scale: 0.97 }}
-      onPress={onPress}>
-      <Text
-        color={active ? palette.accent : palette.textSecondary}
-        fontSize={12.5}
-        fontWeight={active ? '700' : '500'}>
-        {label}
-      </Text>
-    </XStack>
+    <SpringPressable onPress={onPress}>
+      <XStack
+        paddingHorizontal={13}
+        height={32}
+        alignItems="center"
+        borderRadius={999}
+        backgroundColor={active ? palette.accentSoft : 'transparent'}
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor={active ? palette.accent : palette.border}
+        overflow="hidden"
+      >
+        <GlassPanel kind="liquid" variant="control" radius={999} />
+        <Text
+          color={active ? palette.accent : palette.textSecondary}
+          fontSize={12.5}
+          fontWeight={active ? '700' : '500'}>
+          {label}
+        </Text>
+      </XStack>
+    </SpringPressable>
   );
 }
 
@@ -333,18 +368,24 @@ function PlaylistPane({ bottomInset }: { bottomInset: number }) {
         ) : null
       }
       renderItem={({ item }) => (
-        <PlaylistCard
-          title={item.title}
-          coverUrl={item.coverUrl}
-          playCountText={item.playCountText}
-          width={cardWidth}
+        <SpringPressable
           onPress={() =>
             router.push({
               pathname: '/playlist/[id]',
               params: { id: item.id, name: item.title, cover: item.coverUrl ?? '' },
             })
-          }
-        />
+          }>
+          <View style={{ width: cardWidth, borderRadius: 18, overflow: 'hidden' }}>
+            <GlassPanel kind="liquid" radius={18} />
+            <PlaylistCard
+              title={item.title}
+              coverUrl={item.coverUrl}
+              playCountText={item.playCountText}
+              width={cardWidth}
+              onPress={() => {}}
+            />
+          </View>
+        </SpringPressable>
       )}
     />
   );
@@ -403,33 +444,36 @@ function RankingPane({ bottomInset }: { bottomInset: number }) {
         />
       }
       renderItem={({ item }) => (
-        <XStack
-          alignItems="center"
-          gap={13}
-          paddingVertical={9}
-          paddingHorizontal={6}
-          borderRadius={16}
-          transition="quickest"
-          pressStyle={{ opacity: 0.7, backgroundColor: palette.cardAlt }}
+        <SpringPressable
           onPress={() =>
             router.push({
               pathname: '/rank/[id]',
               params: { id: item.id, name: item.name, cover: item.coverUrl ?? '' },
             })
           }>
-          <Artwork uri={item.coverUrl} size={58} radius={14} />
-          <YStack flex={1} gap={3}>
-            <Text color={palette.text} fontSize={15} fontWeight="700" numberOfLines={1}>
-              {item.name}
-            </Text>
-            {item.intro ? (
-              <Text color={palette.textTertiary} fontSize={12} numberOfLines={1}>
-                {item.intro}
+          <XStack
+            alignItems="center"
+            gap={13}
+            paddingVertical={9}
+            paddingHorizontal={6}
+            borderRadius={16}
+            overflow="hidden"
+          >
+            <GlassPanel kind="liquid" radius={16} />
+            <Artwork uri={item.coverUrl} size={58} radius={14} />
+            <YStack flex={1} gap={3}>
+              <Text color={palette.text} fontSize={15} fontWeight="700" numberOfLines={1}>
+                {item.name}
               </Text>
-            ) : null}
-          </YStack>
-          <Ionicons name="chevron-forward" size={16} color={palette.textTertiary} />
-        </XStack>
+              {item.intro ? (
+                <Text color={palette.textTertiary} fontSize={12} numberOfLines={1}>
+                  {item.intro}
+                </Text>
+              ) : null}
+            </YStack>
+            <Ionicons name="chevron-forward" size={16} color={palette.textTertiary} />
+          </XStack>
+        </SpringPressable>
       )}
     />
   );
@@ -510,11 +554,7 @@ function AlbumPane({ bottomInset }: { bottomInset: number }) {
         />
       }
       renderItem={({ item }) => (
-        <YStack
-          width={cardWidth}
-          gap={7}
-          transition="quickest"
-          pressStyle={{ opacity: 0.75, scale: 0.98 }}
+        <SpringPressable
           onPress={() =>
             router.push({
               pathname: '/album/[id]',
@@ -527,16 +567,25 @@ function AlbumPane({ bottomInset }: { bottomInset: number }) {
               },
             })
           }>
-          <Artwork uri={item.coverUrl} radius={16} />
-          <YStack gap={2} paddingHorizontal={2}>
-            <Text color={palette.text} fontSize={12.5} fontWeight="600" lineHeight={17} numberOfLines={2}>
-              {item.name}
-            </Text>
-            <Text color={palette.textTertiary} fontSize={11} numberOfLines={1}>
-              {item.artist}
-            </Text>
+          <YStack
+            width={cardWidth}
+            gap={7}
+            paddingBottom={6}
+            borderRadius={18}
+            overflow="hidden"
+          >
+            <GlassPanel kind="liquid" radius={18} />
+            <Artwork uri={item.coverUrl} radius={16} size={cardWidth} />
+            <YStack gap={2} paddingHorizontal={6} paddingTop={4}>
+              <Text color={palette.text} fontSize={12.5} fontWeight="600" lineHeight={17} numberOfLines={2}>
+                {item.name}
+              </Text>
+              <Text color={palette.textTertiary} fontSize={11} numberOfLines={1}>
+                {item.artist}
+              </Text>
+            </YStack>
           </YStack>
-        </YStack>
+        </SpringPressable>
       )}
     />
   );
@@ -746,8 +795,9 @@ export default function DiscoverScreen() {
   }
 
   return (
-    <View flex={1} backgroundColor={palette.background}>
-      <YStack flex={1} paddingTop={insets.top + 14} gap={14}>
+    <LiquidGlassBackdrop style={{ flex: 1 }}>
+      <View flex={1} backgroundColor={palette.background}>
+        <YStack flex={1} paddingTop={insets.top + 14} gap={14}>
         <YStack
           alignSelf="center"
           width="100%"
@@ -782,5 +832,6 @@ export default function DiscoverScreen() {
         ) : null}
       </YStack>
     </View>
+    </LiquidGlassBackdrop>
   );
 }
