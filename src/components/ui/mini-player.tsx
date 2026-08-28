@@ -23,6 +23,8 @@ import { playerActions, usePlayer, usePlayerProgress } from '@/features/player/s
 import { useDesignSpec } from '@/features/theme/design-style';
 import { useIsDark, usePalette } from '@/hooks/use-palette';
 
+import { triggerHaptic } from '@/lib/haptics';
+
 export const MINI_PLAYER_HEIGHT = 58;
 
 let lastOpenPlayerAt = 0;
@@ -203,6 +205,21 @@ export function MiniPlayer() {
         </YStack>
 
         <XStack
+          width={34}
+          height={36}
+          alignItems="center"
+          justifyContent="center"
+          transition="quickest"
+          pressStyle={{ scale: 0.9, opacity: 0.6 }}
+          onPress={(event) => {
+            event.stopPropagation();
+            triggerHaptic();
+            playerActions.previous();
+          }}>
+          <Ionicons name="play-skip-back" size={19} color={palette.textSecondary} />
+        </XStack>
+
+        <XStack
           width={36}
           height={36}
           borderRadius={18}
@@ -213,6 +230,7 @@ export function MiniPlayer() {
           pressStyle={{ scale: 0.9, opacity: 0.7 }}
           onPress={(event) => {
             event.stopPropagation();
+            triggerHaptic();
             playerActions.toggle();
           }}>
           {busy ? (
@@ -236,8 +254,10 @@ export function MiniPlayer() {
           pressStyle={{ scale: 0.9, opacity: 0.6 }}
           onPress={(event) => {
             event.stopPropagation();
+            triggerHaptic();
             playerActions.next();
           }}>
+
           <Ionicons name="play-skip-forward" size={19} color={palette.textSecondary} />
         </XStack>
       </XStack>

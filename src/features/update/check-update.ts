@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import * as Linking from 'expo-linking';
-import { File, Paths } from 'expo-file-system';
+import { Paths, File } from 'expo-file-system';
 import { Platform } from 'react-native';
 import { isNativeAvailable, moekoeNative } from '@/features/android/native';
 
@@ -87,12 +87,13 @@ export async function downloadAndInstallApk(
     const fileName = `YuMusic-${versionName}.apk`;
     const targetFile = new File(Paths.cache, fileName);
     
-    // 如果已存在且有效，先删除或复用
     if (targetFile.exists) {
       try {
         targetFile.delete();
       } catch {}
     }
+
+    onProgress?.(0.05);
 
     const task = File.createDownloadTask(downloadUrl, targetFile, {
       headers: {
@@ -101,8 +102,15 @@ export async function downloadAndInstallApk(
       },
     });
 
-    // 轮询下载任务或者 downloadAsync
+    let current = 0.05;
+    const timer = setInterval(() => {
+      current = Math.min(0.92, current + 0.08);
+      onProgress?.(current);
+    }, 350);
+
     const result = await task.downloadAsync();
+    clearInterval(timer);
+
     if (!result || !targetFile.exists) {
       return false;
     }

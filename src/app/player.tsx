@@ -35,6 +35,7 @@ import { QueueSheet } from '@/components/ui/queue-sheet';
 import { showToast, ToastHost } from '@/components/ui/toast';
 import { StyledSlider } from '@/components/ui/styled-slider';
 import { TrackActionsSheet } from '@/components/ui/track-actions-sheet';
+import { LiquidSlider } from '@/components/ui/liquid-slider';
 import { ensureOverlayPermission } from '@/features/android/floating-lyrics';
 import { isNativeAvailable } from '@/features/android/native';
 import { libraryActions, useIsLiked } from '@/features/library/store';
@@ -249,43 +250,21 @@ function PlaybackProgress() {
 
   return (
     <YStack gap={7}>
-      <Slider
-        size="$2"
-        value={[Math.min(shownPosition, Math.max(durationMs, 1))]}
+      <LiquidSlider
+        value={shownPosition}
         max={Math.max(durationMs, 1)}
-        step={1}
-        disabled={!durationMs}
-        onValueChange={(values) => {
-          dragValueRef.current = values[0];
-          setDragValue(values[0]);
+        activeColor={palette.accent}
+        height={32}
+        onChange={(v) => {
+          dragValueRef.current = v;
+          setDragValue(v);
         }}
-        onSlideEnd={() => {
-          if (dragValueRef.current !== null) {
-            playerActions.seekToMs(dragValueRef.current);
-          }
+        onSlideEnd={(v) => {
+          playerActions.seekToMs(v);
           dragValueRef.current = null;
-          setTimeout(() => setDragValue(null), 180);
-        }}>
-        <Slider.Track backgroundColor="transparent" height={6} borderRadius={999} overflow="hidden">
-          <GlassPanel kind="liquid" variant="bar" radius={999} />
-          <Slider.TrackActive backgroundColor={palette.accent} opacity={0.7} />
-        </Slider.Track>
-        <Slider.Thumb
-          index={0}
-          size={18}
-          circular
-          backgroundColor="transparent"
-          borderWidth={StyleSheet.hairlineWidth}
-          borderColor={palette.border}
-          overflow="hidden"
-          shadowColor="#000000"
-          shadowOpacity={0.15}
-          shadowRadius={6}
-          shadowOffset={{ width: 0, height: 2 }}
-        >
-          <GlassPanel kind="liquid" variant="control" radius={9} />
-        </Slider.Thumb>
-      </Slider>
+          setTimeout(() => setDragValue(null), 150);
+        }}
+      />
       <XStack justifyContent="space-between">
         <Text color={palette.textTertiary} fontSize={11} fontVariant={['tabular-nums']}>
           {formatClock(shownPosition)}

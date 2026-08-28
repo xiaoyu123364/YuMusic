@@ -87,48 +87,97 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
       uniform float iAberration;
       uniform float iVibrancy;
 
-      float sdRoundRect(vec2 p, vec2 b, float r) {
-        vec2 q = abs(p) - b + r;
-        return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
+      float sdRoundedRect(vec2 coord, vec2 halfSize, float radius) {
+        vec2 cornerCoord = abs(coord) - (halfSize - vec2(radius));
+        float outside = length(max(cornerCoord, 0.0)) - radius;
+        float inside = min(max(cornerCoord.x, cornerCoord.y), 0.0);
+        return outside + inside;
       }
+
+      vec2 gradSdRoundedRect(vec2 coord, vec2 halfSize, float radius) {
+        vec2 cornerCoord = abs(coord) - (halfSize - vec2(radius));
+        if (cornerCoord.x >= 0.0 || cornerCoord.y >= 0.0) {
+          return sign(coord) * normalize(max(cornerCoord, 0.0));
+        } else {
+          float gradX = step(cornerCoord.y, cornerCoord.x);
+          return sign(coord) * vec2(gradX, 1.0 - gradX);
+        }
+      }
+
+      float circleMap(float x) {
+        return 1.0 - sqrt(1.0 - x * x);
+      }
+
       vec3 sat(vec3 c, float s) {
         float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
         return mix(vec3(l), c, s);
       }
-      vec4 main(vec2 fragCoord) {
+
+      vec4 main(vec2 coord) {
         vec2 halfSize = iResolution * 0.5;
-        float r = min(iCorner, min(halfSize.x, halfSize.y));
-        vec2 p = fragCoord - halfSize;
-        float d = sdRoundRect(p, halfSize, r);
-        float band = min(iResolution.x, iResolution.y) * 0.32;
-        float edge = smoothstep(-band, 0.0, d);
-        float e = 1.5;
-        float nx = sdRoundRect(p + vec2(e, 0.0), halfSize, r) - sdRoundRect(p - vec2(e, 0.0), halfSize, r);
-        float ny = sdRoundRect(p + vec2(0.0, e), halfSize, r) - sdRoundRect(p - vec2(0.0, e), halfSize, r);
-        vec2 n = normalize(vec2(nx, ny) + vec2(1e-5));
-        
-        // Kyant0 物理透镜折射与 RGB 色散 (Chromatic Dispersion)
-        vec2 off = -n * (iLens * edge);
-        vec2 base = fragCoord + off;
-        vec2 disp = n * (iAberration * edge * 4.0);
-        vec3 col;
-        col.r = content.eval(clamp(base + disp, vec2(0.0), iResolution)).r;
-        col.g = content.eval(clamp(base, vec2(0.0), iResolution)).g;
-        col.b = content.eval(clamp(base - disp, vec2(0.0), iResolution)).b;
-        col = sat(col, iVibrancy);
-        
-        // 菲涅尔自然微光
-        float fresnel = pow(edge, 2.2);
-        col += vec3(fresnel * 0.18);
-        
-        // 顶部环境镜面反射
+        vec2 centeredCoord = coord - halfSize;
+        float radius = min(iCorner, min(halfSize.x, halfSize.y));
+        float refractionHeight = min(iResolution.x, iResolution.y) * 0.45;
+        float refractionAmount = iLens;
+
+        float sd = sdRoundedRect(centeredCoord, halfSize, radius);
+        if (-sd >= refractionHeight) {
+          return content.eval(coord);
+        }
+        sd = min(sd, 0.0);
+
+        float d = circleMap(1.0 - -sd / refractionHeight) * refractionAmount;
+        float gradRadius = min(radius * 1.5, min(halfSize.x, halfSize.y));
+        vec2 grad = normalize(gradSdRoundedRect(centeredCoord, halfSize, gradRadius) + 0.15 * normalize(centeredCoord + vec2(1e-5)));
+
+        vec2 refractedCoord = coord + d * grad;
+        float dispersionIntensity = iAberration * ((centeredCoord.x * centeredCoord.y) / (halfSize.x * halfSize.y));
+        vec2 dispersedCoord = d * grad * dispersionIntensity * 3.5;
+
+        vec4 color = vec4(0.0);
+
+        // 7 通道物理多波长色散分离 (Kyant0 官方规范)
+        vec4 red = content.eval(clamp(refractedCoord + dispersedCoord, vec2(0.0), iResolution));
+        color.r += red.r / 3.5;
+        color.a += red.a / 7.0;
+
+        vec4 orange = content.eval(clamp(refractedCoord + dispersedCoord * (2.0 / 3.0), vec2(0.0), iResolution));
+        color.r += orange.r / 3.5;
+        color.g += orange.g / 7.0;
+        color.a += orange.a / 7.0;
+
+        vec4 yellow = content.eval(clamp(refractedCoord + dispersedCoord * (1.0 / 3.0), vec2(0.0), iResolution));
+        color.r += yellow.r / 3.5;
+        color.g += yellow.g / 3.5;
+        color.a += yellow.a / 7.0;
+
+        vec4 green = content.eval(clamp(refractedCoord, vec2(0.0), iResolution));
+        color.g += green.g / 3.5;
+        color.a += green.a / 7.0;
+
+        vec4 cyan = content.eval(clamp(refractedCoord - dispersedCoord * (1.0 / 3.0), vec2(0.0), iResolution));
+        color.g += cyan.g / 3.5;
+        color.b += cyan.b / 3.0;
+        color.a += cyan.a / 7.0;
+
+        vec4 blue = content.eval(clamp(refractedCoord - dispersedCoord * (2.0 / 3.0), vec2(0.0), iResolution));
+        color.b += blue.b / 3.0;
+        color.a += blue.a / 7.0;
+
+        vec4 purple = content.eval(clamp(refractedCoord - dispersedCoord, vec2(0.0), iResolution));
+        color.r += purple.r / 7.0;
+        color.b += purple.b / 3.0;
+        color.a += purple.a / 7.0;
+
+        // Vibrancy 饱和度增强
+        color.rgb = sat(color.rgb, iVibrancy);
+
+        // 顶部环境光反射与菲涅尔微光
         vec2 lightDir = normalize(vec2(0.35, -0.65));
-        float spec = pow(max(0.0, dot(n, -lightDir)), 16.0) * edge;
-        col += vec3(spec * 0.36);
-        
-        float rimDark = smoothstep(-band * 0.5, 0.0, d) * 0.08;
-        col *= (1.0 - rimDark);
-        return vec4(col, 1.0);
+        float spec = pow(max(0.0, dot(grad, -lightDir)), 14.0) * (d / (refractionAmount + 1.0));
+        color.rgb += vec3(spec * 0.32);
+
+        return color;
       }
     """
   }

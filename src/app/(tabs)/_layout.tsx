@@ -35,18 +35,24 @@ const TAB_META: Record<string, { glyph: 'home' | 'compass' | 'person'; label: st
 
 type TabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
 
+import { triggerHaptic } from '@/lib/haptics';
+
+import type { SharedValue } from 'react-native-reanimated';
+
 function TabItem({
   route,
   index,
   state,
   navigation,
   tabWidth,
+  indicatorPosition,
 }: {
   route: any;
   index: number;
   state: any;
   navigation: any;
   tabWidth: number;
+  indicatorPosition: SharedValue<number>;
 }) {
   const palette = usePalette();
   const meta = TAB_META[route.name];
@@ -55,7 +61,6 @@ function TabItem({
   if (!meta) return null;
 
   const focused = state.index === index;
-  const tint = focused ? palette.accent : palette.textSecondary;
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -76,6 +81,7 @@ function TabItem({
       canPreventDefault: true,
     });
     if (!focused && !event.defaultPrevented) {
+      triggerHaptic();
       navigation.navigate(route.name);
     }
   };
@@ -91,9 +97,18 @@ function TabItem({
         <Ionicons
           name={focused ? meta.glyph : (`${meta.glyph}-outline` as const)}
           size={24}
-          color={tint}
+          color={focused ? palette.accent : palette.textSecondary}
         />
-        <RNText style={[styles.label, { color: tint }]}>{meta.label}</RNText>
+        <RNText
+          style={[
+            styles.label,
+            {
+              color: focused ? palette.accent : palette.textSecondary,
+              fontWeight: focused ? '700' : '500',
+            },
+          ]}>
+          {meta.label}
+        </RNText>
       </Animated.View>
     </Pressable>
   );
@@ -228,6 +243,7 @@ function FloatingGlassTabBar({
                 state={state}
                 navigation={navigation}
                 tabWidth={tabWidth}
+                indicatorPosition={indicatorPosition}
               />
             ))}
           </View>

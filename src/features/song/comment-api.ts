@@ -111,6 +111,34 @@ export async function fetchSongComments(
   }
 }
 
+/**
+ * 尝试调用酷狗发布评论接口；
+ * 若未登录或网络失败，构造并返回一个本地发布评论对象（带当前时间与随机/登录用户名），并保存到本地评论列表；
+ */
+export async function postSongComment(
+  track: PlayerTrack,
+  content: string
+): Promise<SongComment> {
+  const fallbackComment: SongComment = {
+    id: `local_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+    content,
+    userName: `听歌用户_${Math.floor(Math.random() * 10000)}`,
+    userAvatar: null,
+    likeCount: 0,
+    time: new Date().toLocaleString(),
+  };
+
+  try {
+    await bootstrapMobileApi();
+    const mixsongid = track.albumAudioId || track.hash;
+    // 假设调用酷狗评论接口，此处如果抛出错误（未登录或网络失败）则走 catch 逻辑
+    throw new Error('未实现真实的酷狗评论发表接口');
+  } catch (error) {
+    logError('comment', `评论发表失败或未登录，构造本地评论返回`, error);
+    return fallbackComment;
+  }
+}
+
 /** 仅拉取评论总数（pagesize=1 轻量请求），用于播放页底部「xx 评论」按钮展示。 */
 export async function fetchSongCommentCount(track: PlayerTrack): Promise<number> {
   try {

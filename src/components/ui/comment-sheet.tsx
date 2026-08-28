@@ -1,14 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { FlatList, Modal, Pressable, RefreshControl, StyleSheet, useWindowDimensions } from 'react-native';
+import { FlatList, Modal, Pressable, RefreshControl, StyleSheet, TextInput, ToastAndroid, useWindowDimensions, KeyboardAvoidingView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, View, XStack, YStack } from 'tamagui';
+import { BlurView } from 'expo-blur';
 
 import { Artwork } from '@/components/ui/artwork';
 import { MaterialLoading } from '@/components/ui/loading';
-import { fetchSongComments, type SongComment } from '@/features/song/comment-api';
+import { fetchSongComments, postSongComment, type SongComment } from '@/features/song/comment-api';
 import type { PlayerTrack } from '@/features/player/types';
-import { usePalette } from '@/hooks/use-palette';
+import { useIsDark, usePalette } from '@/hooks/use-palette';
 
 const GOOGLE_COLORS = ['#4285F4', '#EA4335', '#FBBC05', '#34A853'];
 const PAGE_SIZE = 30;
@@ -22,6 +23,7 @@ type CommentSheetProps = {
 /** 歌曲评论底部抽屉：展示热评与最新评论，支持下拉刷新与分页加载。 */
 export function CommentSheet({ open, onOpenChange, track }: CommentSheetProps) {
   const palette = usePalette();
+  const isDark = useIsDark();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const [comments, setComments] = useState<SongComment[]>([]);
@@ -31,6 +33,8 @@ export function CommentSheet({ open, onOpenChange, track }: CommentSheetProps) {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [inputText, setInputText] = useState('');
+  const [posting, setPosting] = useState(false);
 
   async function load(reset: boolean) {
     if (!track) {
@@ -82,6 +86,22 @@ export function CommentSheet({ open, onOpenChange, track }: CommentSheetProps) {
     void load(true);
   };
 
+  const handlePostComment = async () => {
+    if (!inputText.trim() || !track || posting) return;
+    setPosting(true);
+    try {
+      const newComment = await postSongComment(track, inputText.trim());
+      setComments((current) => [newComment, ...current]);
+      setTotal((t) => t + 1);
+      setInputText('');
+      ToastAndroid.show('评论发表成功！', ToastAndroid.SHORT);
+    } catch (e) {
+      ToastAndroid.show('评论发表失败', ToastAndroid.SHORT);
+    } finally {
+      setPosting(false);
+    }
+  };
+
   return (
     <Modal
       visible={open}
@@ -92,13 +112,14 @@ export function CommentSheet({ open, onOpenChange, track }: CommentSheetProps) {
       onRequestClose={() => onOpenChange(false)}>
       <View style={styles.overlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={() => onOpenChange(false)} />
-        <View
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={[
             styles.sheet,
             {
-              paddingBottom: Math.max(insets.bottom, 16) + 8,
               backgroundColor: palette.card,
               borderColor: palette.border,
+              overflow: 'hidden',
             },
           ]}>
           <XStack
@@ -198,7 +219,38 @@ export function CommentSheet({ open, onOpenChange, track }: CommentSheetProps) {
               )}
             />
           )}
-        </View>
+
+          <BlurView
+            intensity={80}
+            tint={isDark ? 'dark' : 'light'}
+            style={{
+              paddingHorizontal: 16,
+              paddingTop: 12,
+              paddingBottom: Math.max(insets.bottom, 12),
+              borderTopWidth: StyleSheet.hairlineWidth,
+              borderTopColor: palette.border,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+            }}>
+            <View flex={1} backgroundColor={palette.cardAlt} borderRadius={20} paddingHorizontal={16} paddingVertical={8}>
+              <TextInput
+                value={inputText}
+                onChangeText={setInputText}
+                placeholder="写下你的听歌心情..."
+                placeholderTextColor={palette.textTertiary}
+                style={{ color: palette.text, fontSize: 14, padding: 0 }}
+                onSubmitEditing={handlePostComment}
+              />
+            </View>
+            <Pressable
+              onPress={handlePostComment}
+              disabled={posting || !inputText.trim()}
+              style={{ opacity: posting || !inputText.trim() ? 0.5 : 1 }}>
+              <Ionicons name="send" size={24} color={palette.accent} />
+            </Pressable>
+          </BlurView>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );

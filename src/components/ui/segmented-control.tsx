@@ -12,6 +12,7 @@ import Animated, {
 import { GlassPanel } from '@/components/ui/glass';
 import { useDesignSpec } from '@/features/theme/design-style';
 import { useIsDark, usePalette } from '@/hooks/use-palette';
+import { triggerHaptic } from '@/lib/haptics';
 
 type SegmentedControlProps<T extends string> = {
   options: readonly { value: T; label: string }[];
@@ -55,6 +56,7 @@ export function SegmentedControl<T extends string>({
   const selectIndex = (index: number) => {
     const option = options[index];
     if (option && option.value !== value) {
+      triggerHaptic();
       onChange(option.value);
     }
   };
@@ -152,7 +154,7 @@ export function SegmentedControl<T extends string>({
                 selectIndex(index);
               }}>
               <Text
-                color={active ? palette.text : palette.textTertiary}
+                color={active ? palette.accent : palette.textTertiary}
                 fontSize={13.5}
                 fontWeight={active ? '700' : '500'}
                 numberOfLines={1}>

@@ -444,9 +444,7 @@ export default function HomeScreen() {
                       });
                       return;
                     }
-                    if (banner.linkUrl) {
-                      router.push({ pathname: '/web', params: { url: banner.linkUrl, title: banner.title } });
-                    }
+                    router.push({ pathname: '/search', params: { q: banner.title } });
                   }}
                 />
               ))}
@@ -522,6 +520,7 @@ export default function HomeScreen() {
                       })
                     }>
                     <RNView
+                      pointerEvents="none"
                       style={{
                         width: playlistCardWidth,
                         shadowColor: '#000',
