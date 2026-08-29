@@ -73,22 +73,12 @@ function TabItem({
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
+    opacity: Math.max(0.2, 1 - progress.value * 0.75),
   }));
-
-  const animatedTextStyle = useAnimatedStyle(() => {
-    return {
-      color: interpolateColor(
-        progress.value,
-        [0, 1],
-        [palette.textSecondary, '#0088FF']
-      ) as string,
-      fontWeight: progress.value > 0.5 ? '700' : '500',
-    };
-  });
 
   const handlePressIn = () => {
     isPressed.value = true;
-    scale.value = withSpring(0.92, { damping: 15, stiffness: 300 });
+    scale.value = withSpring(0.90, { damping: 15, stiffness: 300 });
   };
 
   const handlePressOut = () => {
@@ -117,13 +107,13 @@ function TabItem({
       style={{ width: tabWidth, height: 56, alignItems: 'center', justifyContent: 'center' }}>
       <Animated.View style={[styles.item, animatedStyle]}>
         <Ionicons
-          name={focused ? meta.glyph : (`${meta.glyph}-outline` as const)}
-          size={26}
-          color={focused ? '#0088FF' : palette.textSecondary}
+          name={`${meta.glyph}-outline` as const}
+          size={24}
+          color={palette.textSecondary}
         />
-        <Animated.Text style={[styles.label, animatedTextStyle]}>
+        <RNText style={[styles.label, { color: palette.textSecondary }]}>
           {meta.label}
-        </Animated.Text>
+        </RNText>
       </Animated.View>
     </Pressable>
   );
@@ -255,11 +245,9 @@ function FloatingGlassTabBar({
               {
                 borderRadius: 32,
                 overflow: 'hidden',
-                backgroundColor: liquidGlass
-                  ? (isDark ? 'rgba(18, 18, 18, 0.40)' : 'rgba(250, 250, 250, 0.40)')
-                  : palette.barSurface,
+                backgroundColor: isDark ? 'rgba(18, 18, 18, 0.45)' : 'rgba(255, 255, 255, 0.45)',
                 borderWidth: StyleSheet.hairlineWidth,
-                borderColor: palette.border,
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.60)',
                 shadowColor: '#000',
                 shadowOffset: { width: 0, height: 8 },
                 shadowOpacity: isDark ? 0.4 : 0.12,
@@ -278,46 +266,7 @@ function FloatingGlassTabBar({
             )}
           </View>
 
-          {/* Layer 2: Kyant0 1:1 悬浮水滴物理滑块（56dp, radius 28dp, 突破放大 1.393x） */}
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              {
-                position: 'absolute',
-                top: 4,
-                left: 4,
-                width: tabWidth,
-                height: 56,
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 2,
-              },
-              animatedIndicatorStyle,
-            ]}>
-            <View
-              style={{
-                width: tabWidth,
-                height: 56,
-                borderRadius: 28,
-                overflow: 'hidden',
-                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.22)' : 'rgba(255, 255, 255, 0.92)',
-                borderWidth: 1.5,
-                borderColor: isDark ? 'rgba(255, 255, 255, 0.60)' : 'rgba(255, 255, 255, 0.98)',
-                shadowColor: palette.accent,
-                shadowOffset: { width: 0, height: 6 },
-                shadowOpacity: 0.40,
-                shadowRadius: 12,
-                elevation: 8,
-              }}>
-              <GlassPanel
-                kind="liquid"
-                variant="control"
-                radius={28}
-              />
-            </View>
-          </Animated.View>
-
-          {/* Layer 3: 单层前景 TabItem (高度 56dp) */}
+          {/* Layer 2: Kyant0 底层普通未激活 TabItem (高度 56dp) */}
           <View style={styles.row}>
             {state.routes.map((route, index) => (
               <TabItem
@@ -332,6 +281,72 @@ function FloatingGlassTabBar({
               />
             ))}
           </View>
+
+          {/* Layer 3: Kyant0 1:1 悬浮微晶水滴透镜滑块（突破放大 1.393x + 内部高亮科技蓝） */}
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              {
+                position: 'absolute',
+                top: 4,
+                left: 4,
+                width: tabWidth,
+                height: 56,
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 10,
+              },
+              animatedIndicatorStyle,
+            ]}>
+            {/* 水滴微晶高透胶囊底体 */}
+            <View
+              style={{
+                width: tabWidth,
+                height: 56,
+                borderRadius: 28,
+                overflow: 'hidden',
+                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(255, 255, 255, 0.90)',
+                borderWidth: 1.5,
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.70)' : 'rgba(255, 255, 255, 1.0)',
+                shadowColor: '#0088FF',
+                shadowOffset: { width: 0, height: 6 },
+                shadowOpacity: 0.45,
+                shadowRadius: 14,
+                elevation: 12,
+              }}>
+              <GlassPanel
+                kind="liquid"
+                variant="control"
+                radius={28}
+              />
+            </View>
+
+            {/* 水滴透镜内部：实时放大激活的科技蓝高光图标与文字 */}
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                {
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 2,
+                },
+              ]}>
+              <Ionicons
+                name={TAB_META[state.routes[state.index]?.name]?.glyph || 'home'}
+                size={27}
+                color="#0088FF"
+              />
+              <RNText
+                style={{
+                  fontSize: 11.5,
+                  fontWeight: '700',
+                  color: '#0088FF',
+                  letterSpacing: 0.2,
+                }}>
+                {TAB_META[state.routes[state.index]?.name]?.label || '首页'}
+              </RNText>
+            </View>
+          </Animated.View>
         </Animated.View>
       </GestureDetector>
     </View>
