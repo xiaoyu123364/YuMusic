@@ -295,16 +295,21 @@ function FloatingGlassTabBar({
                 height: 56,
                 borderRadius: 28,
                 overflow: 'hidden',
-                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.20)' : 'rgba(255, 255, 255, 0.88)',
+                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.22)' : 'rgba(255, 255, 255, 0.90)',
                 borderWidth: 1.5,
-                borderColor: isDark ? 'rgba(255, 255, 255, 0.55)' : 'rgba(255, 255, 255, 0.98)',
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.60)' : 'rgba(255, 255, 255, 0.98)',
                 shadowColor: palette.accent,
                 shadowOffset: { width: 0, height: 6 },
-                shadowOpacity: 0.35,
+                shadowOpacity: 0.40,
                 shadowRadius: 12,
                 elevation: 8,
               }}>
-              <GlassPanel kind="liquid" variant="control" radius={28} />
+              <GlassPanel
+                kind="liquid"
+                variant="control"
+                radius={28}
+                backdropTargetId={backdropTargetId}
+              />
             </View>
           </Animated.View>
 

@@ -562,11 +562,11 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
 
   /** 玻璃质感：主题色磨砂填充（KSU 配方）+ 沿圆角描边的浅色高光。 */
   private fun drawGlassOverlay(canvas: Canvas, w: Float, h: Float) {
-    // 1. 半透明高透磨砂底色（Kyant0 官方规范 alpha 0.18~0.22，保证高透光与色散可见）
+    // 1. 半透明高透磨砂底色（Kyant0 官方规范，保证无论何时都清晰可见）
     val resolvedAlpha = if (surfaceTintAlpha >= 0f) {
       (surfaceTintAlpha.coerceIn(0f, 1f) * 255f).toInt().coerceIn(0, 255)
     } else {
-      45 // 约 0.18
+      52 // 保证微晶实体清晰可见
     }
     val tintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
       style = Paint.Style.FILL
@@ -579,34 +579,34 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
     }
     canvas.drawRect(0f, 0f, w, h, tintPaint)
 
-    // 2. 玻璃镜面斜向微光反光
+    // 2. 玻璃镜面斜向微光反光（Kyant0 镜面高光）
     val sheenPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
       style = Paint.Style.FILL
       shader = LinearGradient(
-        0f, 0f, w * 0.7f, h * 0.7f,
+        0f, 0f, w * 0.8f, h * 0.8f,
         intArrayOf(
-          Color.argb(35, 255, 255, 255),
-          Color.argb(8, 255, 255, 255),
+          Color.argb(95, 255, 255, 255),
+          Color.argb(30, 255, 255, 255),
           Color.argb(0, 255, 255, 255)
         ),
-        floatArrayOf(0f, 0.4f, 1f),
+        floatArrayOf(0f, 0.45f, 1f),
         Shader.TileMode.CLAMP
       )
     }
     canvas.drawRect(0f, 0f, w, h, sheenPaint)
 
-    // 3. 自然清亮高光微晶边框
+    // 3. 自然清亮高光微晶边框（Kyant0 镜面边框）
     if (enableEdgeHighlight) {
-      val stroke = bevelWidth.coerceAtLeast(1.0f)
+      val stroke = bevelWidth.coerceAtLeast(1.5f)
       val rim = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = stroke
         shader = LinearGradient(
           0f, 0f, 0f, h,
           intArrayOf(
-            Color.argb(80, 255, 255, 255),
-            Color.argb(35, 255, 255, 255),
-            Color.argb(10, 255, 255, 255)
+            Color.argb(220, 255, 255, 255),
+            Color.argb(120, 255, 255, 255),
+            Color.argb(40, 255, 255, 255)
           ),
           floatArrayOf(0f, 0.45f, 1f),
           Shader.TileMode.CLAMP
@@ -622,13 +622,13 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
     val topGlow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
       style = Paint.Style.FILL
       shader = LinearGradient(
-        0f, 0f, 0f, (h * 0.2f).coerceAtLeast(10f),
-        intArrayOf(Color.argb(30, 255, 255, 255), Color.argb(0, 255, 255, 255)),
+        0f, 0f, 0f, (h * 0.25f).coerceAtLeast(12f),
+        intArrayOf(Color.argb(70, 255, 255, 255), Color.argb(0, 255, 255, 255)),
         null,
         Shader.TileMode.CLAMP
       )
     }
-    canvas.drawRect(0f, 0f, w, (h * 0.2f).coerceAtLeast(10f), topGlow)
+    canvas.drawRect(0f, 0f, w, (h * 0.25f).coerceAtLeast(12f), topGlow)
   }
 
   // ---------- 盒式模糊（API<31 降级，O(w*h*r) 小图足够快） ----------
