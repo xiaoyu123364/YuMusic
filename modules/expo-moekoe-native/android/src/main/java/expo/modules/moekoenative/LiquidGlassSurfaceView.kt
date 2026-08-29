@@ -404,21 +404,6 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
     canvas.clipPath(clipPath)
     drawGlassOverlay(canvas, w, h)
     canvas.restore()
-
-    // 动态采样：绑定了 backdrop 就持续重绘，使玻璃随内容滚动刷新。
-    // 性能节流：节流到 ~30fps（每 33ms 一帧），避免每帧都重做软件 backdrop 采样与
-    // RenderEffect 链 → GPU/CPU 压力大幅下降，视觉滚动刷新率仍然足够流畅。
-    if (backdropTarget != null) {
-      val now = System.nanoTime()
-      val frameNs = 33_000_000L
-      val elapsed = now - lastFrameNs
-      if (elapsed >= frameNs) {
-        lastFrameNs = now
-        postInvalidateOnAnimation()
-      } else {
-        postInvalidateDelayed((frameNs - elapsed) / 1_000_000L)
-      }
-    }
   }
 
   /**

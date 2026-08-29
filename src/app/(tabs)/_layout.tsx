@@ -277,8 +277,16 @@ function FloatingGlassTabBar({
           <Animated.View
             pointerEvents="none"
             style={[
-              StyleSheet.absoluteFill,
-              { width: tabWidth, justifyContent: 'center', alignItems: 'center', zIndex: 0 },
+              {
+                position: 'absolute',
+                top: 4,
+                left: 0,
+                width: tabWidth,
+                height: 56,
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 1,
+              },
               animatedIndicatorStyle,
             ]}>
             <View
@@ -287,24 +295,16 @@ function FloatingGlassTabBar({
                 height: 56,
                 borderRadius: 28,
                 overflow: 'hidden',
+                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.16)' : 'rgba(255, 255, 255, 0.78)',
+                borderWidth: 1.5,
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.45)' : 'rgba(255, 255, 255, 0.95)',
                 shadowColor: palette.accent,
                 shadowOffset: { width: 0, height: 6 },
-                shadowOpacity: 0.25,
+                shadowOpacity: 0.35,
                 shadowRadius: 12,
                 elevation: 8,
               }}>
               <GlassPanel kind="liquid" variant="control" radius={28} />
-              <View
-                style={[
-                  StyleSheet.absoluteFill,
-                  {
-                    borderRadius: 28,
-                    borderWidth: 1.2,
-                    borderColor: 'rgba(255, 255, 255, 0.35)',
-                    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
-                  },
-                ]}
-              />
             </View>
           </Animated.View>
 

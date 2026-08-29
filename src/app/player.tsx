@@ -456,13 +456,12 @@ export default function PlayerScreen() {
   }
 
   return (
-    <LiquidGlassBackdrop>
+    <LiquidGlassBackdrop style={{ flex: 1 }}>
       <View flex={1} backgroundColor={palette.playerBottom}>
         <LinearGradient
           colors={[palette.playerTop, palette.playerBottom]}
           style={StyleSheet.absoluteFill}
         />
-
         <YStack flex={1} paddingTop={insets.top + 6} paddingBottom={Math.max(insets.bottom, 14) + 10}>
           {/* 顶栏：液态玻璃胶囊 */}
           <XStack zIndex={1} alignItems="center" justifyContent="space-between" paddingHorizontal={18}>
