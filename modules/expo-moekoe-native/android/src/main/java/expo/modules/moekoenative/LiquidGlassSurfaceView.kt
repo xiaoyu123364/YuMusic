@@ -105,7 +105,7 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
       }
 
       float circleMap(float x) {
-        return 1.0 - sqrt(1.0 - x * x);
+        return 1.0 - sqrt(max(0.0, 1.0 - x * x));
       }
 
       vec3 sat(vec3 c, float s) {
@@ -117,26 +117,25 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
         vec2 halfSize = iResolution * 0.5;
         vec2 centeredCoord = coord - halfSize;
         float radius = min(iCorner, min(halfSize.x, halfSize.y));
-        float refractionHeight = min(iResolution.x, iResolution.y) * 0.45;
+        float refractionHeight = min(halfSize.x, halfSize.y);
         float refractionAmount = iLens;
 
         float sd = sdRoundedRect(centeredCoord, halfSize, radius);
-        if (-sd >= refractionHeight) {
+        if (sd > 0.0) {
           return content.eval(coord);
         }
-        sd = min(sd, 0.0);
 
-        float d = circleMap(1.0 - -sd / refractionHeight) * refractionAmount;
-        float gradRadius = min(radius * 1.5, min(halfSize.x, halfSize.y));
-        vec2 grad = normalize(gradSdRoundedRect(centeredCoord, halfSize, gradRadius) + 0.15 * normalize(centeredCoord + vec2(1e-5)));
+        // Kyant0 1:1 物理凸透镜曲率场（整颗水滴由外至内平滑隆起并放大）
+        float intensity = circleMap(clamp(1.0 - (-sd) / (refractionHeight + 1e-3), 0.0, 1.0));
+        vec2 grad = normalize(gradSdRoundedRect(centeredCoord, halfSize, radius) + 0.35 * normalize(centeredCoord + vec2(1e-5)));
 
-        vec2 refractedCoord = coord + d * grad;
-        float dispersionIntensity = iAberration * ((centeredCoord.x * centeredCoord.y) / (halfSize.x * halfSize.y));
-        vec2 dispersedCoord = d * grad * dispersionIntensity * 3.5;
+        vec2 refractedCoord = coord - intensity * refractionAmount * grad;
+        float dispersionIntensity = iAberration * (0.4 + 0.6 * intensity);
+        vec2 dispersedCoord = intensity * grad * dispersionIntensity * 4.5;
 
         vec4 color = vec4(0.0);
 
-        // 7 通道物理多波长色散分离 (Kyant0 官方规范)
+        // 7 通道物理多波长色散分离 (Kyant0 官方光谱)
         vec4 red = content.eval(clamp(refractedCoord + dispersedCoord, vec2(0.0), iResolution));
         color.r += red.r / 3.5;
         color.a += red.a / 7.0;
@@ -172,10 +171,10 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
         // Vibrancy 饱和度增强
         color.rgb = sat(color.rgb, iVibrancy);
 
-        // 顶部环境光反射与菲涅尔微光
+        // 菲涅尔自然微光与斜向光源镜面反光
         vec2 lightDir = normalize(vec2(0.35, -0.65));
-        float spec = pow(max(0.0, dot(grad, -lightDir)), 14.0) * (d / (refractionAmount + 1.0));
-        color.rgb += vec3(spec * 0.32);
+        float spec = pow(max(0.0, dot(grad, -lightDir)), 14.0) * intensity;
+        color.rgb += vec3(spec * 0.45);
 
         return color;
       }

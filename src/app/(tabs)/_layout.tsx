@@ -48,6 +48,7 @@ function TabItem({
   navigation,
   tabWidth,
   indicatorPosition,
+  isPressed,
 }: {
   route: any;
   index: number;
@@ -55,6 +56,7 @@ function TabItem({
   navigation: any;
   tabWidth: number;
   indicatorPosition: SharedValue<number>;
+  isPressed: SharedValue<boolean>;
 }) {
   const palette = usePalette();
   const meta = TAB_META[route.name];
@@ -78,17 +80,19 @@ function TabItem({
       color: interpolateColor(
         progress.value,
         [0, 1],
-        [palette.textSecondary, palette.accent]
+        [palette.textSecondary, '#0088FF']
       ) as string,
       fontWeight: progress.value > 0.5 ? '700' : '500',
     };
   });
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.90, { damping: 15, stiffness: 300 });
+    isPressed.value = true;
+    scale.value = withSpring(0.92, { damping: 15, stiffness: 300 });
   };
 
   const handlePressOut = () => {
+    isPressed.value = false;
     scale.value = withSpring(1, { damping: 15, stiffness: 300 });
   };
 
@@ -115,7 +119,7 @@ function TabItem({
         <Ionicons
           name={focused ? meta.glyph : (`${meta.glyph}-outline` as const)}
           size={26}
-          color={focused ? palette.accent : palette.textSecondary}
+          color={focused ? '#0088FF' : palette.textSecondary}
         />
         <Animated.Text style={[styles.label, animatedTextStyle]}>
           {meta.label}
@@ -324,6 +328,7 @@ function FloatingGlassTabBar({
                 navigation={navigation}
                 tabWidth={tabWidth}
                 indicatorPosition={indicatorPosition}
+                isPressed={isPressed}
               />
             ))}
           </View>
