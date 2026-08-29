@@ -1,0 +1,67 @@
+﻿name: Build iOS IPA
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-ipa:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prebuild iOS project
+        run: npx expo prebuild --platform ios --no-install
+
+      - name: Install CocoaPods dependencies
+        working-directory: ios
+        run: pod install --repo-update
+
+      - name: Build unsigned iOS archive
+        run: |
+          xcodebuild archive \
+            -workspace ios/YuMusic.xcworkspace \
+            -scheme YuMusic \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/YuMusic.xcarchive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM=""
+
+      - name: Package Payload and generate IPA
+        run: |
+          mkdir -p dist Payload
+          cp -R "build/YuMusic.xcarchive/Products/Applications/YuMusic.app" Payload/
+          zip -qry "dist/YuMusic-v1.9.3.ipa" Payload
+          ls -la dist
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: YuMusic-IPA
+          path: dist/*.ipa
+
+      - name: Attach IPA to GitHub Release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.ipa
