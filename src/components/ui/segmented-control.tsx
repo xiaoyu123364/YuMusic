@@ -91,15 +91,15 @@ export function SegmentedControl<T extends string>({
   const thumbStyle = useAnimatedStyle(() => ({
     transform: [
       { translateX: position.value },
-      { scale: withSpring(isPressed.value ? 1.18 : 1, SPRING) }
+      { scale: withSpring(isPressed.value ? 1.30 : 1, SPRING) }
     ],
   }));
 
   return (
     <XStack
-      padding={2}
-      height={44}
-      borderRadius={14}
+      padding={3}
+      height={48}
+      borderRadius={24}
       backgroundColor={
         kind === 'plain'
           ? palette.cardAlt
@@ -109,37 +109,38 @@ export function SegmentedControl<T extends string>({
       }
       borderWidth={StyleSheet.hairlineWidth}
       borderColor={kind === 'frost' || kind === 'plain' ? palette.border : palette.barBorder}
-      overflow="hidden"
+      overflow="visible"
       onLayout={(event) => setContainerWidth(event.nativeEvent.layout.width)}>
-      {kind === 'frost' ? <GlassPanel kind={kind} radius={14} blurIntensity={44} /> : null}
+      {kind === 'frost' ? <GlassPanel kind={kind} radius={24} blurIntensity={44} /> : null}
       {segmentWidth > 0 ? (
         <GestureDetector gesture={pan}>
           <Animated.View
+            pointerEvents="none"
             style={[
               {
                 position: 'absolute',
-                top: 2,
-                left: 2,
+                top: 3,
+                left: 3,
                 width: segmentWidth,
-                height: 40,
-                borderRadius: 12,
+                height: 42,
+                borderRadius: 21,
                 backgroundColor:
                   kind === 'liquid'
-                    ? 'transparent' // 玻璃本体由原生折射层绘制，避免白块叠玻璃
+                    ? 'transparent'
                     : palette.card,
                 borderWidth: StyleSheet.hairlineWidth,
-                borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.8)', // 微晶高光边框
+                borderColor: isDark ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.85)',
                 shadowColor: palette.dockShadow,
-                shadowOffset: { width: 0, height: 3 },
-                shadowOpacity: isDark ? 0.4 : 0.12,
-                shadowRadius: 8,
-                elevation: 3,
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: isDark ? 0.4 : 0.15,
+                shadowRadius: 10,
+                elevation: 4,
                 zIndex: 0,
               },
               thumbStyle,
             ]}>
             {kind === 'liquid' ? (
-              <GlassPanel kind="liquid" variant="control" radius={12} blurIntensity={40} />
+              <GlassPanel kind="liquid" variant="control" radius={21} blurIntensity={40} />
             ) : null}
           </Animated.View>
         </GestureDetector>

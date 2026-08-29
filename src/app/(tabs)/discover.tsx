@@ -815,39 +815,11 @@ export default function DiscoverScreen() {
           <Text color={palette.text} fontSize={34} fontWeight="800" letterSpacing={0.37}>
             发现
           </Text>
-          <XStack
-            height={44}
-            borderRadius={18}
-            padding={3}
-            borderWidth={StyleSheet.hairlineWidth}
-            borderColor={palette.border}
-            overflow="hidden">
-            <GlassPanel kind="liquid" radius={18} variant="bar" />
-            <XStack flex={1} zIndex={1}>
-              {DISCOVER_TABS.map((option) => {
-                const active = option.value === tab;
-                return (
-                  <XStack
-                    key={option.value}
-                    flex={1}
-                    alignItems="center"
-                    justifyContent="center"
-                    borderRadius={14}
-                    overflow="hidden"
-                    pressStyle={{ opacity: 0.6 }}
-                    onPress={() => switchTab(option.value)}>
-                    {active && <GlassPanel kind="liquid" variant="control" radius={14} />}
-                    <Text
-                      color={active ? palette.text : palette.textTertiary}
-                      fontSize={13.5}
-                      fontWeight={active ? '700' : '500'}>
-                      {option.label}
-                    </Text>
-                  </XStack>
-                );
-              })}
-            </XStack>
-          </XStack>
+          <SegmentedControl
+            options={DISCOVER_TABS}
+            value={tab}
+            onChange={switchTab}
+          />
         </YStack>
 
         {mounted.includes('playlist') ? (

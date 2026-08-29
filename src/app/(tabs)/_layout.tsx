@@ -172,32 +172,38 @@ function FloatingGlassTabBar({
     .onBegin(() => {
       isDragging.value = true;
       isPressed.value = true;
+      runOnJS(triggerHaptic)();
     })
     .onChange((event) => {
       const newPos = indicatorPosition.value + event.changeX;
       const maxPos = tabWidth * (numTabs - 1);
       indicatorPosition.value = Math.max(0, Math.min(newPos, maxPos));
-      panelOffset.value = event.translationX * 0.08;
+      panelOffset.value = (event.translationX / tabBarWidth) * 12;
     })
     .onFinalize(() => {
       isDragging.value = false;
       isPressed.value = false;
-      panelOffset.value = withSpring(0, { damping: 15, stiffness: 180 });
+      panelOffset.value = withSpring(0, { damping: 14, stiffness: 220, mass: 0.7 });
       const nearestIndex = Math.round(indicatorPosition.value / tabWidth);
       runOnJS(navigateToTab)(nearestIndex);
       runOnJS(triggerHaptic)();
       indicatorPosition.value = withSpring(nearestIndex * tabWidth, {
-        damping: 15,
-        stiffness: 180,
-        mass: 0.8,
+        damping: 13,
+        stiffness: 240,
+        mass: 0.6,
       });
     });
 
   const animatedIndicatorStyle = useAnimatedStyle(() => {
+    const scale = withSpring(isPressed.value ? 1.393 : 1.0, {
+      damping: 12,
+      stiffness: 260,
+      mass: 0.6,
+    });
     return {
       transform: [
         { translateX: indicatorPosition.value },
-        { scale: withSpring(isPressed.value ? 1.25 : 1.0) }
+        { scale },
       ],
     };
   });
@@ -238,27 +244,28 @@ function FloatingGlassTabBar({
             <BlurView
               intensity={barBlur ? 75 : 0}
               tint={isDark ? 'dark' : 'light'}
-              style={StyleSheet.absoluteFill}
+              style={[StyleSheet.absoluteFill, { borderRadius: 32, overflow: 'hidden' }]}
             />
           )}
 
-          {/* 滑动液态玻璃药丸指示器 */}
+          {/* Kyant0 悬浮液态玻璃药丸指示器（突破底栏，1.393x 放大） */}
           <Animated.View
+            pointerEvents="none"
             style={[
               StyleSheet.absoluteFill,
               { width: tabWidth, justifyContent: 'center', alignItems: 'center', zIndex: 0 },
               animatedIndicatorStyle,
             ]}>
-            <View style={{ width: Math.min(tabWidth - 24, 72), height: 44, borderRadius: 24, overflow: 'hidden' }}>
-              <GlassPanel kind="liquid" variant="control" radius={24} />
+            <View style={{ width: tabWidth - 8, height: 56, borderRadius: 28, overflow: 'hidden' }}>
+              <GlassPanel kind="liquid" variant="control" radius={28} />
               <View
                 style={[
                   StyleSheet.absoluteFill,
                   {
-                    borderRadius: 24,
-                    borderWidth: 1,
-                    borderColor: 'rgba(255, 255, 255, 0.15)',
-                    backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                    borderRadius: 28,
+                    borderWidth: 1.2,
+                    borderColor: 'rgba(255, 255, 255, 0.25)',
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
                   },
                 ]}
               />
@@ -351,7 +358,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
   },
   card: {
-    overflow: 'hidden',
+    overflow: 'visible',
   },
   row: {
     flex: 1,
