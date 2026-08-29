@@ -188,6 +188,7 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
   // ---- 离屏缓冲（API<31 降级用） ----
   private var sampleBitmap: Bitmap? = null
   private var blurredBitmap: Bitmap? = null
+  private var reusableCanvas: Canvas? = null
   private val blurPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true }
 
   // ---- API31+ 硬件模糊用 ----
@@ -450,8 +451,9 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
       sample.eraseColor(fallbackColor)
     }
 
-    // 软件离屏采样：绝不对 backdrop 调用硬件录制，避免 RenderNode 重入崩溃。
-    val sCanvas = Canvas(sample)
+    // 软件离屏采样：复用 Canvas 实例，彻底消除每帧内存分配与 GC 抖动
+    val sCanvas = reusableCanvas ?: Canvas().also { reusableCanvas = it }
+    sCanvas.setBitmap(sample)
     sCanvas.setMatrix(Matrix())
     sCanvas.translate(dx * scale, dy * scale)
     sCanvas.scale(scale, scale)
@@ -725,6 +727,7 @@ class LiquidGlassSurfaceView(context: Context) : FrameLayout(context) {
     sampleBitmap = null
     blurredBitmap?.recycle()
     blurredBitmap = null
+    reusableCanvas = null
     renderNode = null
   }
 }

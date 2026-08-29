@@ -135,24 +135,20 @@ export function SegmentedControl<T extends string>({
                 width: segmentWidth,
                 height: 42,
                 borderRadius: 21,
-                backgroundColor:
-                  kind === 'liquid'
-                    ? 'transparent'
-                    : palette.card,
-                borderWidth: StyleSheet.hairlineWidth,
-                borderColor: isDark ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.85)',
-                shadowColor: palette.dockShadow,
+                overflow: 'hidden',
+                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.18)' : 'rgba(255, 255, 255, 0.88)',
+                borderWidth: 1.5,
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.45)' : 'rgba(255, 255, 255, 0.98)',
+                shadowColor: palette.accent,
                 shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: isDark ? 0.4 : 0.15,
+                shadowOpacity: isDark ? 0.35 : 0.15,
                 shadowRadius: 10,
-                elevation: 4,
-                zIndex: 0,
+                elevation: 6,
+                zIndex: 2,
               },
               thumbStyle,
             ]}>
-            {kind === 'liquid' ? (
-              <GlassPanel kind="liquid" variant="control" radius={21} blurIntensity={40} />
-            ) : null}
+            <GlassPanel kind="liquid" variant="control" radius={21} blurIntensity={40} />
           </Animated.View>
         ) : null}
       <XStack flex={1} zIndex={1} pointerEvents="box-none">

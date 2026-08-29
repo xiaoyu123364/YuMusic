@@ -153,11 +153,11 @@ function FloatingGlassTabBar({
   const panelOffset = useSharedValue(0);
 
   useEffect(() => {
-    if (!isDragging.value) {
+    if (!isDragging.value && tabWidth > 0) {
       indicatorPosition.value = withSpring(state.index * tabWidth, {
-        damping: 15,
-        stiffness: 180,
-        mass: 0.8,
+        damping: 14,
+        stiffness: 220,
+        mass: 0.7,
       });
     }
   }, [state.index, tabWidth]);
@@ -171,7 +171,7 @@ function FloatingGlassTabBar({
 
   const pan = Gesture.Pan()
     .activeOffsetX([-4, 4])
-    .failOffsetY([-25, 25])
+    .failOffsetY([-30, 30])
     .shouldCancelWhenOutside(false)
     .onBegin(() => {
       isDragging.value = true;
@@ -190,7 +190,7 @@ function FloatingGlassTabBar({
       isPressed.value = false;
       velocityX.value = withSpring(0, { damping: 12, stiffness: 240 });
       panelOffset.value = withSpring(0, { damping: 14, stiffness: 220, mass: 0.7 });
-      const nearestIndex = Math.round(indicatorPosition.value / tabWidth);
+      const nearestIndex = Math.max(0, Math.min(numTabs - 1, Math.round(indicatorPosition.value / tabWidth)));
       runOnJS(navigateToTab)(nearestIndex);
       runOnJS(triggerHaptic)();
       indicatorPosition.value = withSpring(nearestIndex * tabWidth, {
@@ -245,7 +245,7 @@ function FloatingGlassTabBar({
             },
             animatedPanelStyle,
           ]}>
-          {/* 独立圆角胶囊底栏背景（严格保持 32dp 圆角，绝对杜绝长方形） */}
+          {/* 独立圆角胶囊底栏背景 */}
           <View
             style={[
               StyleSheet.absoluteFill,
@@ -273,7 +273,7 @@ function FloatingGlassTabBar({
             )}
           </View>
 
-          {/* Kyant0 悬浮水滴指示器（突破底栏，1.393x 放大 + Squash & Stretch） */}
+          {/* Kyant0 1:1 物理微晶悬浮水滴滑块（突破底栏，1.393x 放大 + Squash & Stretch） */}
           <Animated.View
             pointerEvents="none"
             style={[
@@ -285,7 +285,7 @@ function FloatingGlassTabBar({
                 height: 56,
                 alignItems: 'center',
                 justifyContent: 'center',
-                zIndex: 1,
+                zIndex: 2,
               },
               animatedIndicatorStyle,
             ]}>
@@ -295,9 +295,9 @@ function FloatingGlassTabBar({
                 height: 56,
                 borderRadius: 28,
                 overflow: 'hidden',
-                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.16)' : 'rgba(255, 255, 255, 0.78)',
+                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.20)' : 'rgba(255, 255, 255, 0.88)',
                 borderWidth: 1.5,
-                borderColor: isDark ? 'rgba(255, 255, 255, 0.45)' : 'rgba(255, 255, 255, 0.95)',
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.55)' : 'rgba(255, 255, 255, 0.98)',
                 shadowColor: palette.accent,
                 shadowOffset: { width: 0, height: 6 },
                 shadowOpacity: 0.35,

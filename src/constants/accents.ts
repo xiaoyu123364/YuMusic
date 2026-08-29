@@ -34,16 +34,16 @@ export function withAlpha(hex: string, alpha: number): `rgba(${string})` {
 }
 
 export type AccentPresetId =
-  | 'apple'
-  | 'dynamic'
-  | 'pink'
-  | 'blue'
-  | 'green'
-  | 'gold'
-  | 'purple'
-  | 'red'
-  | 'teal'
-  | 'orange';
+  | 'dynamic'   // Android 12+ Material You 系统壁纸动态取色
+  | 'kyant'     // Kyant0 官方冰川微晶蓝
+  | 'apple'     // Apple Music 经典液态绯红
+  | 'neon'      // 赛博极光紫
+  | 'black'     // OLED 极夜纯黑
+  | 'pink'      // 春日樱粉
+  | 'green'     // 松石墨绿
+  | 'gold'      // 琥珀金
+  | 'teal'      // 湖青
+  | 'orange';   // 落日橙
 
 type AccentOverlay = Pick<
   AppPalette,
@@ -68,23 +68,29 @@ export type AccentPreset = {
 };
 
 export const ACCENT_PRESETS: readonly AccentPreset[] = [
-  // Apple Music 红：默认主色，还原 Apple Music 的品牌红（浅 #FA233B / 深 #FB4B55）。
+  // 动态取色（Material You）：读取 Android 12+ 系统壁纸主色 / 当前封面 Palette
+  { id: 'dynamic', label: 'Material You', light: '#3B82F6', dark: '#60A5FA' },
+  // Kyant0 冰川蓝：官方物理液态玻璃微晶蓝
+  { id: 'kyant', label: '冰川蓝', light: '#0088FF', dark: '#38A5FF' },
+  // Apple Music 红：经典液态绯红
   { id: 'apple', label: 'Apple红', light: '#FA233B', dark: '#FB4B55' },
-  // 动态取色（Material You）：读取 Android 12+ 系统壁纸主色 / 当前封面 Palette，
-  // 实时注入全局主题。此处为不可用（低版本/提取失败）时的回退色。
-  { id: 'dynamic', label: '动态', light: '#3D8BFF', dark: '#66A3FF' },
-  // 固定色板：与动态取色并存，随时可切。
-  { id: 'pink', label: '樱粉', light: '#FF5C9E', dark: '#FF7EB6' },
-  { id: 'blue', label: '远峰蓝', light: '#3D8BFF', dark: '#66A3FF' },
-  { id: 'green', label: '松石绿', light: '#2FA36B', dark: '#5BC48E' },
+  // 赛博霓虹极光紫
+  { id: 'neon', label: '赛博紫', light: '#8B5CF6', dark: '#A78BFA' },
+  // OLED 极夜黑白
+  { id: 'black', label: '极夜黑', light: '#18181B', dark: '#FAFAFA' },
+  // 樱粉
+  { id: 'pink', label: '樱花粉', light: '#FF4B72', dark: '#FF7EB6' },
+  // 松石翡翠绿
+  { id: 'green', label: '松石绿', light: '#00B578', dark: '#34D399' },
+  // 琥珀金
   { id: 'gold', label: '琥珀金', light: '#D89A1E', dark: '#F0B429' },
-  { id: 'purple', label: '星紫', light: '#8B4FE8', dark: '#A97BF5' },
-  { id: 'red', label: '绯红', light: '#E5484D', dark: '#FF6B6E' },
+  // 湖青
   { id: 'teal', label: '湖青', light: '#0E9BA4', dark: '#3FC1C9' },
+  // 落日橙
   { id: 'orange', label: '落日橙', light: '#F0641E', dark: '#FF8A50' },
 ];
 
-export const DEFAULT_ACCENT_ID: AccentPresetId = 'apple';
+export const DEFAULT_ACCENT_ID: AccentPresetId = 'kyant';
 
 export function isAccentPresetId(value: unknown): value is AccentPresetId {
   return typeof value === 'string' && ACCENT_PRESETS.some((preset) => preset.id === value);
