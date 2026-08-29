@@ -39,10 +39,7 @@ const TAB_META: Record<string, { glyph: 'home' | 'compass' | 'person'; label: st
 type TabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
 
 import { triggerHaptic } from '@/lib/haptics';
-
 import type { SharedValue } from 'react-native-reanimated';
-
-const AnimatedIcon = Animated.createAnimatedComponent(Ionicons);
 
 function TabItem({
   route,
@@ -88,7 +85,7 @@ function TabItem({
   });
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.85, { damping: 15, stiffness: 300 });
+    scale.value = withSpring(0.90, { damping: 15, stiffness: 300 });
   };
 
   const handlePressOut = () => {
@@ -113,11 +110,11 @@ function TabItem({
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      style={{ width: tabWidth, alignItems: 'center', justifyContent: 'center' }}>
+      style={{ width: tabWidth, height: 56, alignItems: 'center', justifyContent: 'center' }}>
       <Animated.View style={[styles.item, animatedStyle]}>
         <Ionicons
           name={focused ? meta.glyph : (`${meta.glyph}-outline` as const)}
-          size={24}
+          size={26}
           color={focused ? palette.accent : palette.textSecondary}
         />
         <Animated.Text style={[styles.label, animatedTextStyle]}>
@@ -128,7 +125,7 @@ function TabItem({
   );
 }
 
-/** Apple Music 式底部导航栏：全宽半透明材质、49pt 内容高、顶部发丝线、图标+小标签。 */
+/** Kyant0 原版 1:1 物理液态玻璃 Dock 栏（LiquidBottomTabs） */
 function FloatingGlassTabBar({
   state,
   navigation,
@@ -141,10 +138,10 @@ function FloatingGlassTabBar({
   const liquidGlass = useLiquidGlass();
   const { width } = useWindowDimensions();
 
-  const TAB_BAR_MARGIN = 36;
-  const tabBarWidth = Math.min(width - TAB_BAR_MARGIN * 2, 280); // Tighter span, max width 280
+  // Kyant0 官方规范：两边各 padding 36dp，最大宽度 320dp
+  const tabBarWidth = Math.min(width - 72, 320);
   const numTabs = state.routes.length;
-  const tabWidth = tabBarWidth / numTabs;
+  const tabWidth = (tabBarWidth - 8) / numTabs; // 除去左右 4dp padding
 
   const indicatorPosition = useSharedValue(state.index * tabWidth);
   const isDragging = useSharedValue(false);
@@ -182,7 +179,7 @@ function FloatingGlassTabBar({
       const newPos = indicatorPosition.value + event.changeX;
       const maxPos = tabWidth * (numTabs - 1);
       indicatorPosition.value = Math.max(0, Math.min(newPos, maxPos));
-      panelOffset.value = (event.translationX / tabBarWidth) * 12;
+      panelOffset.value = (event.translationX / tabBarWidth) * 8;
       velocityX.value = withSpring(event.velocityX, { damping: 18, stiffness: 200 });
     })
     .onFinalize(() => {
@@ -201,13 +198,14 @@ function FloatingGlassTabBar({
     });
 
   const animatedIndicatorStyle = useAnimatedStyle(() => {
+    // Kyant0 原版按压放大 78dp / 56dp = 1.393x，突破 64dp 底栏外框
     const baseScale = withSpring(isPressed.value ? 1.393 : 1.0, {
       damping: 12,
       stiffness: 260,
       mass: 0.6,
     });
     // Kyant0 水滴 Squash & Stretch 物理拉伸
-    const stretch = Math.min(0.22, Math.abs(velocityX.value) / 3000);
+    const stretch = Math.min(0.24, Math.abs(velocityX.value) / 2800);
     const scaleX = baseScale * (1 + stretch);
     const scaleY = baseScale * (1 - stretch * 0.6);
     return {
@@ -242,17 +240,20 @@ function FloatingGlassTabBar({
             styles.card,
             {
               height: 64,
+              padding: 4,
             },
             animatedPanelStyle,
           ]}>
-          {/* 独立圆角胶囊底栏背景 */}
+          {/* Layer 1: Kyant0 底栏独立背景圆角胶囊 (64dp, radius 32dp) */}
           <View
             style={[
               StyleSheet.absoluteFill,
               {
                 borderRadius: 32,
                 overflow: 'hidden',
-                backgroundColor: liquidGlass ? 'transparent' : palette.barSurface,
+                backgroundColor: liquidGlass
+                  ? (isDark ? 'rgba(18, 18, 18, 0.40)' : 'rgba(250, 250, 250, 0.40)')
+                  : palette.barSurface,
                 borderWidth: StyleSheet.hairlineWidth,
                 borderColor: palette.border,
                 shadowColor: '#000',
@@ -273,14 +274,14 @@ function FloatingGlassTabBar({
             )}
           </View>
 
-          {/* Kyant0 1:1 物理微晶悬浮水滴滑块（突破底栏，1.393x 放大 + Squash & Stretch） */}
+          {/* Layer 2: Kyant0 1:1 悬浮水滴物理滑块（56dp, radius 28dp, 突破放大 1.393x） */}
           <Animated.View
             pointerEvents="none"
             style={[
               {
                 position: 'absolute',
                 top: 4,
-                left: 0,
+                left: 4,
                 width: tabWidth,
                 height: 56,
                 alignItems: 'center',
@@ -291,11 +292,11 @@ function FloatingGlassTabBar({
             ]}>
             <View
               style={{
-                width: tabWidth - 8,
+                width: tabWidth,
                 height: 56,
                 borderRadius: 28,
                 overflow: 'hidden',
-                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.22)' : 'rgba(255, 255, 255, 0.90)',
+                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.22)' : 'rgba(255, 255, 255, 0.92)',
                 borderWidth: 1.5,
                 borderColor: isDark ? 'rgba(255, 255, 255, 0.60)' : 'rgba(255, 255, 255, 0.98)',
                 shadowColor: palette.accent,
@@ -308,11 +309,11 @@ function FloatingGlassTabBar({
                 kind="liquid"
                 variant="control"
                 radius={28}
-                backdropTargetId={backdropTargetId}
               />
             </View>
           </Animated.View>
 
+          {/* Layer 3: 单层前景 TabItem (高度 56dp) */}
           <View style={styles.row}>
             {state.routes.map((route, index) => (
               <TabItem
@@ -413,9 +414,9 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   label: {
-    fontSize: 10,
-    fontWeight: '500',
-    letterSpacing: 0.1,
+    fontSize: 11.5,
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
   dock: {
     position: 'absolute',
