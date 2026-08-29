@@ -45,6 +45,7 @@ export function SegmentedControl<T extends string>({
 
   const position = useSharedValue(0);
   const dragStart = useSharedValue(0);
+  const isPressed = useSharedValue(false);
 
   // 外部 value 变化 → 滑块动画归位
   useEffect(() => {
@@ -66,6 +67,7 @@ export function SegmentedControl<T extends string>({
     .failOffsetY([-12, 12])
     .onBegin(() => {
       dragStart.value = position.value;
+      isPressed.value = true;
     })
     .onUpdate((event) => {
       const maxOffset = segmentWidth * (options.length - 1);
@@ -81,10 +83,16 @@ export function SegmentedControl<T extends string>({
       );
       position.value = withSpring(index * segmentWidth, SPRING);
       runOnJS(selectIndex)(index);
+    })
+    .onFinalize(() => {
+      isPressed.value = false;
     });
 
   const thumbStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: position.value }],
+    transform: [
+      { translateX: position.value },
+      { scale: withSpring(isPressed.value ? 1.18 : 1, SPRING) }
+    ],
   }));
 
   return (
@@ -120,12 +128,13 @@ export function SegmentedControl<T extends string>({
                     ? 'transparent' // 玻璃本体由原生折射层绘制，避免白块叠玻璃
                     : palette.card,
                 borderWidth: StyleSheet.hairlineWidth,
-                borderColor: isDark ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.65)',
+                borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.8)', // 微晶高光边框
                 shadowColor: palette.dockShadow,
                 shadowOffset: { width: 0, height: 3 },
                 shadowOpacity: isDark ? 0.4 : 0.12,
                 shadowRadius: 8,
                 elevation: 3,
+                zIndex: 0,
               },
               thumbStyle,
             ]}>
@@ -135,7 +144,7 @@ export function SegmentedControl<T extends string>({
           </Animated.View>
         </GestureDetector>
       ) : null}
-      <XStack flex={1} zIndex={1}>
+      <XStack flex={1} zIndex={1} pointerEvents="box-none">
         {options.map((option, index) => {
           const active = option.value === value;
           return (

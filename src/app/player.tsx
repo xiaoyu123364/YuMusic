@@ -296,33 +296,14 @@ function VolumeControl() {
         color={palette.textTertiary}
       />
       <View flex={1}>
-        <Slider
-          size="$2"
-          value={[volume]}
+        <LiquidSlider
+          value={volume}
           max={100}
-          step={1}
-          onValueChange={(values) => apply(values[0])}
-        >
-          <Slider.Track backgroundColor="transparent" height={6} borderRadius={999} overflow="hidden">
-            <GlassPanel kind="liquid" variant="bar" radius={999} />
-            <Slider.TrackActive backgroundColor={palette.accent} opacity={0.7} />
-          </Slider.Track>
-          <Slider.Thumb
-            index={0}
-            size={18}
-            circular
-            backgroundColor="transparent"
-            borderWidth={StyleSheet.hairlineWidth}
-            borderColor={palette.border}
-            overflow="hidden"
-            shadowColor="#000000"
-            shadowOpacity={0.15}
-            shadowRadius={6}
-            shadowOffset={{ width: 0, height: 2 }}
-          >
-            <GlassPanel kind="liquid" variant="control" radius={9} />
-          </Slider.Thumb>
-        </Slider>
+          activeColor={palette.accent}
+          height={32}
+          onChange={(v) => apply(v)}
+          onSlideEnd={(v) => apply(v)}
+        />
       </View>
       <MaterialCommunityIcons name="volume-high" size={24} color={palette.textTertiary} />
     </XStack>

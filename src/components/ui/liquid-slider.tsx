@@ -20,10 +20,10 @@ export interface LiquidSliderProps {
 }
 
 /**
- * 纯 Gesture Handler + Reanimated 驱动的全交互液态玻璃滑块
- * - 支持拖动与点击瞬间跳转
- * - 拖拽时带有 Q 弹放大阻尼动画
- * - 提供清脆的触觉反馈
+ * 核心组件：液态滑块 (Kyant0 风格)
+ * - 细轨正圆，6dp 轨道高度，20dp 极简滑钮
+ * - 带有丝滑的拖动阻尼回弹
+ * - 点击瞬间即达并伴有清脆反馈
  */
 export function LiquidSlider({
   value,
@@ -86,9 +86,16 @@ export function LiquidSlider({
   const composedGesture = Gesture.Race(pan, tap);
 
   const ratio = max > 0 ? Math.min(Math.max(value / max, 0), 1) : 0;
-  const thumbSize = 28; // 胶囊直径
-  const thumbRadius = 14; 
+  
+  // 严格依据 Kyant0 标准尺寸
+  const trackHeight = 6;
+  const trackRadius = 3;
+  const thumbSize = 20;
+  const thumbRadius = 10;
+  
+  // 计算垂直居中偏移
   const thumbOffset = (height - thumbSize) / 2;
+  const trackOffset = (height - trackHeight) / 2;
 
   const trackAnimatedStyle = useAnimatedStyle(() => {
     return {
@@ -97,9 +104,7 @@ export function LiquidSlider({
   });
 
   const thumbAnimatedStyle = useAnimatedStyle(() => {
-    // 限制 Thumb 不会超出轨道左右两端
     let thumbX = ratio * width.value - thumbSize / 2;
-    // 为避免越界可开启钳制，但传统滑块 Thumb 中心随边缘移动
     if (thumbX < 0) thumbX = 0;
     if (width.value > 0 && thumbX > width.value - thumbSize) {
       thumbX = width.value - thumbSize;
@@ -120,21 +125,21 @@ export function LiquidSlider({
           width.value = e.nativeEvent.layout.width;
         }}
       >
-        {/* 轨道为液态玻璃底槽 */}
-        <View style={[StyleSheet.absoluteFill, styles.trackBg, { borderRadius: height / 2 }]}>
-          <GlassPanel kind="liquid" radius={height / 2} variant="bar" />
+        {/* 细轨道底槽：半透明磨砂液态玻璃 */}
+        <View style={[styles.trackBg, { height: trackHeight, top: trackOffset, borderRadius: trackRadius }]}>
+          <GlassPanel kind="liquid" radius={trackRadius} variant="bar" />
         </View>
 
-        {/* 已走过的进度条高亮并随滑块到达变色 */}
+        {/* 细轨道进度层：不会撑大的跟随变色 */}
         <Animated.View
           style={[
             styles.activeTrack,
-            { backgroundColor: activeColor, borderRadius: height / 2 },
+            { height: trackHeight, top: trackOffset, backgroundColor: activeColor, borderRadius: trackRadius },
             trackAnimatedStyle,
           ]}
         />
 
-        {/* 内部高透液态玻璃胶囊 */}
+        {/* 精致小圆滑钮 */}
         <Animated.View
           style={[
             styles.thumb,
@@ -161,14 +166,15 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   trackBg: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
     overflow: 'hidden',
   },
   activeTrack: {
-    height: '100%',
     position: 'absolute',
     left: 0,
-    top: 0,
-    opacity: 0.6, // 让高亮层透出下方的玻璃质感
+    opacity: 0.8,
   },
   thumb: {
     position: 'absolute',

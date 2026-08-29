@@ -2,7 +2,7 @@
   "expo": {
     "name": "YuMusic",
     "slug": "yumusic",
-    "version": "1.8.6",
+    "version": "1.8.7",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "yumusic",
@@ -35,7 +35,7 @@
     },
     "android": {
       "package": "com.yumusic.app",
-      "versionCode": 33,
+      "versionCode": 34,
       "adaptiveIcon": {
         "backgroundColor": "#F6F9FF",
         "foregroundImage": "./assets/images/android-icon-foreground.png"

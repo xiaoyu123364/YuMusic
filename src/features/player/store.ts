@@ -86,7 +86,7 @@ const playerStore = createStore(INITIAL_PLAYER_STATE);
 const progressStore = createStore(INITIAL_PROGRESS_STATE);
 
 let audioPlayer: AudioPlayer | null = null;
-let loadSequence = 0;
+let switchGeneration = 0;
 let failStreak = 0;
 let advanceTimer: ReturnType<typeof setTimeout> | null = null;
 // 每次“建立新队列”都会自增；后台补齐歌单剩余曲目时靠它判断队列是否已被替换。
@@ -160,7 +160,7 @@ function pickNextIndex(step: 1 | -1, auto: boolean): number {
   return (index + step + queue.length) % queue.length;
 }
 
-async function loadTrackAt(index: number, options?: { autoplay?: boolean }) {
+async function loadTrackAt(index: number, options?: { autoplay?: boolean; generation?: number }) {
   const { queue } = playerStore.getState();
   const track = queue[index];
   if (!track) {
@@ -172,7 +172,9 @@ async function loadTrackAt(index: number, options?: { autoplay?: boolean }) {
     advanceTimer = null;
   }
 
-  const sequence = ++loadSequence;
+  const sequence = options?.generation ?? ++switchGeneration;
+  
+  // 原子化更新当前歌曲信息与 activeHash
   playerStore.setState({
     index,
     track,
@@ -186,7 +188,7 @@ async function loadTrackAt(index: number, options?: { autoplay?: boolean }) {
 
   try {
     const source = await resolveSongSource(track);
-    if (sequence !== loadSequence) {
+    if (sequence !== switchGeneration) {
       return;
     }
 
@@ -212,7 +214,7 @@ async function loadTrackAt(index: number, options?: { autoplay?: boolean }) {
     }
 
   } catch (error) {
-    if (sequence !== loadSequence) {
+    if (sequence !== switchGeneration) {
       return;
     }
 
@@ -228,10 +230,11 @@ async function loadTrackAt(index: number, options?: { autoplay?: boolean }) {
     const { queue: currentQueue } = playerStore.getState();
     const maxStreak = Math.min(currentQueue.length, 6);
     if (currentQueue.length > 1 && failStreak < maxStreak) {
+      // 遇到无版权或播放失败，平滑自动跳到下一首
       advanceTimer = setTimeout(() => {
         advanceTimer = null;
         void skip(1, true);
-      }, 1400);
+      }, 500); // 缩短等待时间，平滑跳过
     }
   }
 }
@@ -239,7 +242,7 @@ async function loadTrackAt(index: number, options?: { autoplay?: boolean }) {
 async function loadLyricsFor(track: PlayerTrack, sequence: number) {
   try {
     const lines = await loadLyricLines(track);
-    if (sequence !== loadSequence) {
+    if (sequence !== switchGeneration) {
       return;
     }
 
@@ -248,19 +251,20 @@ async function loadLyricsFor(track: PlayerTrack, sequence: number) {
       lyricsStatus: lines.length ? 'ready' : 'empty',
     });
   } catch {
-    if (sequence === loadSequence) {
+    if (sequence === switchGeneration) {
       playerStore.setState({ lyrics: [], lyricsStatus: 'empty' });
     }
   }
 }
 
 async function skip(step: 1 | -1, auto = false) {
+  const sequence = ++switchGeneration;
   const nextIndex = pickNextIndex(step, auto);
   if (nextIndex < 0) {
     return;
   }
 
-  await loadTrackAt(nextIndex);
+  await loadTrackAt(nextIndex, { generation: sequence });
 }
 
 /** 当前队列的 generation 是否仍是 expected（供后台补齐判断队列是否已被替换/清空）。 */
@@ -284,7 +288,7 @@ export const playerActions = {
       return;
     }
 
-    const sequence = loadSequence;
+    const sequence = switchGeneration;
     playerStore.setState({ lyricsStatus: 'loading' });
     await loadLyricsFor(track, sequence);
   },
@@ -295,6 +299,7 @@ export const playerActions = {
    * 无可播曲目时返回 null。
    */
   async playTracks(tracks: PlayerTrack[], startIndex = 0): Promise<number | null> {
+    const sequence = ++switchGeneration;
     const playable = tracks.filter((track) => track.hash);
     if (!playable.length) {
       return null;
@@ -309,10 +314,13 @@ export const playerActions = {
       playable.findIndex((track) => track.hash === targetHash)
     );
 
+    // 原子化更新，杜绝中间态
+    playerStore.setState({ queue: playable });
+    if (sequence !== switchGeneration) return null;
+
     failStreak = 0;
     const generation = ++queueGeneration;
-    playerStore.setState({ queue: playable });
-    await loadTrackAt(index);
+    await loadTrackAt(index, { generation: sequence });
     return generation;
   },
 
@@ -344,12 +352,13 @@ export const playerActions = {
       return;
     }
 
+    const sequence = ++switchGeneration;
     void autoClaimVipBenefits();
 
     const { queue, index } = playerStore.getState();
     const existing = queue.findIndex((item) => item.hash === track.hash);
     if (existing >= 0) {
-      await loadTrackAt(existing);
+      await loadTrackAt(existing, { generation: sequence });
       return;
     }
 
@@ -359,7 +368,9 @@ export const playerActions = {
     nextQueue.splice(index + 1, 0, track);
     failStreak = 0;
     playerStore.setState({ queue: nextQueue });
-    await loadTrackAt(index + 1);
+    
+    if (sequence !== switchGeneration) return;
+    await loadTrackAt(index + 1, { generation: sequence });
   },
 
   pause() {
@@ -470,7 +481,7 @@ export const playerActions = {
   },
 
   clearQueue() {
-    loadSequence += 1;
+    switchGeneration += 1;
     queueGeneration += 1;
     if (advanceTimer) {
       clearTimeout(advanceTimer);

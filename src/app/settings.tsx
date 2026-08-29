@@ -130,6 +130,8 @@ function AccentSwatch({
   );
 }
 
+import { LiquidToggle } from '@/components/ui/liquid-toggle';
+
 function ToggleRow({
   label,
   value,
@@ -140,18 +142,6 @@ function ToggleRow({
   onToggle: () => void;
 }) {
   const palette = usePalette();
-  const progress = useSharedValue(value ? 1 : 0);
-
-  useEffect(() => {
-    progress.value = withTiming(value ? 1 : 0, { duration: 200 });
-  }, [value, progress]);
-
-  const trackStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(progress.value, [0, 1], [palette.cardAlt, palette.accent]),
-  }));
-  const knobStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: progress.value * 18 }],
-  }));
 
   return (
     <XStack
@@ -165,14 +155,7 @@ function ToggleRow({
       <Text flex={1} color={palette.text} fontSize={14.5} fontWeight="500">
         {label}
       </Text>
-      <Animated.View
-        style={[
-          styles.switchTrack,
-          { backgroundColor: palette.cardAlt },
-          trackStyle,
-        ]}>
-        <Animated.View style={[styles.switchKnob, knobStyle]} />
-      </Animated.View>
+      <LiquidToggle checked={value} onCheckedChange={onToggle} />
     </XStack>
   );
 }

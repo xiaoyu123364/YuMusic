@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { FlatList, Modal, Pressable, RefreshControl, StyleSheet, TextInput, ToastAndroid, useWindowDimensions, KeyboardAvoidingView, Platform } from 'react-native';
+import { FlatList, Modal, Pressable, RefreshControl, StyleSheet, TextInput, ToastAndroid, useWindowDimensions, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, View, XStack, YStack } from 'tamagui';
 import { BlurView } from 'expo-blur';
@@ -35,6 +35,22 @@ export function CommentSheet({ open, onOpenChange, track }: CommentSheetProps) {
   const [refreshing, setRefreshing] = useState(false);
   const [inputText, setInputText] = useState('');
   const [posting, setPosting] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => setKeyboardHeight(e.endCoordinates.height)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardHeight(0)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   async function load(reset: boolean) {
     if (!track) {
@@ -232,6 +248,7 @@ export function CommentSheet({ open, onOpenChange, track }: CommentSheetProps) {
               flexDirection: 'row',
               alignItems: 'center',
               gap: 12,
+              marginBottom: Platform.OS === 'android' ? keyboardHeight : 0,
             }}>
             <View flex={1} backgroundColor={palette.cardAlt} borderRadius={20} paddingHorizontal={16} paddingVertical={8}>
               <TextInput

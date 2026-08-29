@@ -22,18 +22,23 @@ import { RankCard } from '@/components/ui/rank-card';
 import { SectionHeader } from '@/components/ui/section-header';
 import { TrackActionsSheet } from '@/components/ui/track-actions-sheet';
 import { MaxContentWidth, WideBreakpoint } from '@/constants/theme';
-import { loadHomeData, type HomeBanner, type HomeData, type HomeSong } from '@/features/home/load-home-data';
+import { fetchCategoryPlaylists } from '@/features/discover/discover-api';
+import { loadHomeData, type HomeBanner, type HomeData, type HomeSong, type HomePlaylist } from '@/features/home/load-home-data';
 import { playerActions, usePlayer } from '@/features/player/store';
 import type { PlayerTrack } from '@/features/player/types';
 import { useDockContentInset } from '@/hooks/use-dock-inset';
 import { usePalette } from '@/hooks/use-palette';
 import { formatApiError } from '@/lib/api-parse';
+import { MaterialLoading } from '@/components/ui/loading';
 
 type ScreenState = {
   homeData: HomeData | null;
   initialLoading: boolean;
   refreshing: boolean;
   errorMessage: string;
+  playlistsPage: number;
+  playlistsHasMore: boolean;
+  playlistsLoadingMore: boolean;
 };
 
 const DAILY_COLUMN_SIZE = 3;
@@ -157,7 +162,7 @@ function HeroBannerCard({
               justifyContent="center">
               <Ionicons name="play" size={18} color="#FFF" style={{ marginLeft: 2 }} />
             </XStack>
-            <YStack flex={1} minWidth={0} overflow="hidden">
+            <YStack flex={1} minWidth={0}>
               <Text color="#FFF" fontSize={12} fontWeight="600" opacity={0.8} numberOfLines={1} flexShrink={1}>
                 精选推荐
               </Text>
@@ -196,7 +201,7 @@ function SmallGridSongCard({
         borderRadius={12}
         backgroundColor={active ? palette.accentSoft : 'transparent'}>
         <Artwork uri={song.coverUrl} radius={8} size={48} />
-        <YStack flex={1} gap={2} minWidth={0} overflow="hidden">
+        <YStack flex={1} gap={2} minWidth={0}>
           <Text
             color={active ? palette.accent : palette.text}
             fontSize={14}
@@ -238,7 +243,7 @@ function LargeRecentCard({
     <SpringPressable onPress={onPress}>
       <YStack width={width} gap={8}>
         <Artwork uri={song.coverUrl} radius={16} size={width} />
-        <YStack gap={2} minWidth={0} overflow="hidden">
+        <YStack gap={2} minWidth={0}>
           <Text
             color={active ? palette.accent : palette.text}
             fontSize={14}
@@ -269,6 +274,9 @@ export default function HomeScreen() {
     initialLoading: true,
     refreshing: false,
     errorMessage: '',
+    playlistsPage: 1,
+    playlistsHasMore: true,
+    playlistsLoadingMore: false,
   });
   const [actionTrack, setActionTrack] = useState<PlayerTrack | null>(null);
 
@@ -290,24 +298,71 @@ export default function HomeScreen() {
         initialLoading: !current.homeData,
         refreshing: Boolean(current.homeData),
         errorMessage: '',
+        playlistsPage: 1,
+        playlistsHasMore: true,
+        playlistsLoadingMore: false,
       }));
     });
     try {
       const homeData = await loadHomeData();
       if (requestId !== requestIdRef.current) return;
       startTransition(() => {
-        setState({ homeData, initialLoading: false, refreshing: false, errorMessage: '' });
+        setState({ 
+          homeData, 
+          initialLoading: false, 
+          refreshing: false, 
+          errorMessage: '',
+          playlistsPage: 1,
+          playlistsHasMore: true,
+          playlistsLoadingMore: false,
+        });
       });
     } catch (error) {
       if (requestId !== requestIdRef.current) return;
       startTransition(() => {
         setState((current) => ({
-          homeData: current.homeData,
+          ...current,
           initialLoading: false,
           refreshing: false,
           errorMessage: formatApiError(error),
         }));
       });
+    }
+  }
+
+  async function loadMorePlaylists() {
+    if (!state.homeData || !state.playlistsHasMore || state.playlistsLoadingMore) return;
+    
+    setState((current) => ({ ...current, playlistsLoadingMore: true }));
+    try {
+      const nextPage = state.playlistsPage + 1;
+      // tagId 0 是推荐歌单分类
+      const result = await fetchCategoryPlaylists(0, nextPage);
+      const newPlaylists = result.playlists.map(p => ({
+        gid: p.id,
+        title: p.title,
+        coverUrl: p.coverUrl,
+        playCountText: p.playCountText
+      } as HomePlaylist));
+      
+      setState((current) => {
+        if (!current.homeData) return current;
+        const existingGids = new Set(current.homeData.playlists.map(p => p.gid));
+        const filteredNew = newPlaylists.filter(p => !existingGids.has(p.gid));
+        
+        return {
+          ...current,
+          homeData: {
+            ...current.homeData,
+            playlists: [...current.homeData.playlists, ...filteredNew]
+          },
+          playlistsPage: nextPage,
+          playlistsHasMore: result.hasMore,
+          playlistsLoadingMore: false
+        };
+      });
+    } catch (e) {
+      setState((current) => ({ ...current, playlistsLoadingMore: false }));
     }
   }
 
@@ -365,6 +420,14 @@ export default function HomeScreen() {
         <ScrollView
           showsVerticalScrollIndicator={false}
           removeClippedSubviews={true}
+          scrollEventThrottle={400}
+          onScroll={({ nativeEvent }) => {
+            const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+            const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 500;
+            if (isCloseToBottom) {
+              void loadMorePlaylists();
+            }
+          }}
           refreshControl={
             <RefreshControl
               refreshing={state.refreshing}
@@ -506,45 +569,6 @@ export default function HomeScreen() {
             </YStack>
           ) : null}
 
-          {homeData.playlists.length ? (
-            <YStack gap={12} paddingHorizontal={16}>
-              <SectionHeader title="热门歌单" subtitle="精选歌单推荐" />
-              <XStack flexWrap="wrap" gap={14}>
-                {homeData.playlists.map((playlist) => (
-                  <SpringPressable
-                    key={playlist.gid}
-                    onPress={() =>
-                      router.push({
-                        pathname: '/playlist/[id]',
-                        params: { id: playlist.gid, name: playlist.title, cover: playlist.coverUrl ?? '' },
-                      })
-                    }>
-                    <RNView
-                      pointerEvents="none"
-                      style={{
-                        width: playlistCardWidth,
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 3 },
-                        shadowOpacity: 0.27,
-                        shadowRadius: 4.65,
-                        elevation: 6,
-                        borderRadius: 18,
-                        backgroundColor: palette.card,
-                      }}>
-                      <PlaylistCard
-                        title={playlist.title}
-                        coverUrl={playlist.coverUrl}
-                        playCountText={playlist.playCountText}
-                        width={playlistCardWidth}
-                        onPress={() => {}}
-                      />
-                    </RNView>
-                  </SpringPressable>
-                ))}
-              </XStack>
-            </YStack>
-          ) : null}
-
           {homeData.rankCards.length ? (
             <YStack gap={12} paddingHorizontal={16}>
               <SectionHeader title="排行榜" subtitle="全球热门单曲" />
@@ -562,6 +586,45 @@ export default function HomeScreen() {
                   </SpringPressable>
                 ))}
               </ScrollView>
+            </YStack>
+          ) : null}
+
+          {homeData.playlists.length ? (
+            <YStack gap={12} paddingHorizontal={16}>
+              <SectionHeader title="热门歌单" subtitle="精选歌单推荐" />
+              <XStack flexWrap="wrap" gap={14}>
+                {homeData.playlists.map((playlist) => (
+                  <SpringPressable
+                    key={playlist.gid}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/playlist/[id]',
+                        params: { id: playlist.gid, name: playlist.title, cover: playlist.coverUrl ?? '' },
+                      })
+                    }>
+                    <RNView
+                      pointerEvents="none"
+                      style={{
+                        width: playlistCardWidth,
+                        borderRadius: 18,
+                        backgroundColor: palette.card,
+                      }}>
+                      <PlaylistCard
+                        title={playlist.title}
+                        coverUrl={playlist.coverUrl}
+                        playCountText={playlist.playCountText}
+                        width={playlistCardWidth}
+                        onPress={() => {}}
+                      />
+                    </RNView>
+                  </SpringPressable>
+                ))}
+              </XStack>
+              {state.playlistsLoadingMore ? (
+                <XStack justifyContent="center" paddingVertical={14}>
+                  <MaterialLoading size={20} color={palette.accent} />
+                </XStack>
+              ) : null}
             </YStack>
           ) : null}
         </ScrollView>

@@ -16,6 +16,9 @@ import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  useDerivedValue,
+  useAnimatedProps,
+  interpolateColor,
   withSpring,
   runOnJS,
 } from 'react-native-reanimated';
@@ -38,6 +41,8 @@ type TabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>
 import { triggerHaptic } from '@/lib/haptics';
 
 import type { SharedValue } from 'react-native-reanimated';
+
+const AnimatedIcon = Animated.createAnimatedComponent(Ionicons);
 
 function TabItem({
   route,
@@ -62,9 +67,25 @@ function TabItem({
 
   const focused = state.index === index;
 
+  const progress = useDerivedValue(() => {
+    const distance = Math.abs(indicatorPosition.value - index * tabWidth);
+    return Math.max(0, 1 - distance / tabWidth);
+  });
+
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
+
+  const animatedTextStyle = useAnimatedStyle(() => {
+    return {
+      color: interpolateColor(
+        progress.value,
+        [0, 1],
+        [palette.textSecondary, palette.accent]
+      ) as string,
+      fontWeight: progress.value > 0.5 ? '700' : '500',
+    };
+  });
 
   const handlePressIn = () => {
     scale.value = withSpring(0.85, { damping: 15, stiffness: 300 });
@@ -99,16 +120,9 @@ function TabItem({
           size={24}
           color={focused ? palette.accent : palette.textSecondary}
         />
-        <RNText
-          style={[
-            styles.label,
-            {
-              color: focused ? palette.accent : palette.textSecondary,
-              fontWeight: focused ? '700' : '500',
-            },
-          ]}>
+        <Animated.Text style={[styles.label, animatedTextStyle]}>
           {meta.label}
-        </RNText>
+        </Animated.Text>
       </Animated.View>
     </Pressable>
   );
@@ -134,6 +148,8 @@ function FloatingGlassTabBar({
 
   const indicatorPosition = useSharedValue(state.index * tabWidth);
   const isDragging = useSharedValue(false);
+  const isPressed = useSharedValue(false);
+  const panelOffset = useSharedValue(0);
 
   useEffect(() => {
     if (!isDragging.value) {
@@ -155,16 +171,21 @@ function FloatingGlassTabBar({
   const pan = Gesture.Pan()
     .onBegin(() => {
       isDragging.value = true;
+      isPressed.value = true;
     })
     .onChange((event) => {
       const newPos = indicatorPosition.value + event.changeX;
       const maxPos = tabWidth * (numTabs - 1);
       indicatorPosition.value = Math.max(0, Math.min(newPos, maxPos));
+      panelOffset.value = event.translationX * 0.08;
     })
     .onFinalize(() => {
       isDragging.value = false;
+      isPressed.value = false;
+      panelOffset.value = withSpring(0, { damping: 15, stiffness: 180 });
       const nearestIndex = Math.round(indicatorPosition.value / tabWidth);
       runOnJS(navigateToTab)(nearestIndex);
+      runOnJS(triggerHaptic)();
       indicatorPosition.value = withSpring(nearestIndex * tabWidth, {
         damping: 15,
         stiffness: 180,
@@ -174,7 +195,16 @@ function FloatingGlassTabBar({
 
   const animatedIndicatorStyle = useAnimatedStyle(() => {
     return {
-      transform: [{ translateX: indicatorPosition.value }],
+      transform: [
+        { translateX: indicatorPosition.value },
+        { scale: withSpring(isPressed.value ? 1.25 : 1.0) }
+      ],
+    };
+  });
+
+  const animatedPanelStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateX: panelOffset.value }],
     };
   });
 
@@ -190,16 +220,17 @@ function FloatingGlassTabBar({
       ]}
       pointerEvents="box-none">
       <GestureDetector gesture={pan}>
-        <View
+        <Animated.View
           style={[
             styles.card,
             {
-              height: TabBarHeight,
+              height: 64,
               backgroundColor: liquidGlass ? 'transparent' : palette.barSurface,
               borderRadius: 32,
               borderWidth: StyleSheet.hairlineWidth,
               borderColor: palette.border,
             },
+            animatedPanelStyle,
           ]}>
           {liquidGlass ? (
             <LiquidGlassSurface radius={32} backdropTargetId={backdropTargetId} />
@@ -247,7 +278,7 @@ function FloatingGlassTabBar({
               />
             ))}
           </View>
-        </View>
+        </Animated.View>
       </GestureDetector>
     </View>
   );
@@ -299,7 +330,7 @@ export default function TabsLayout() {
             style={[
               styles.dock,
               {
-                bottom: insets.bottom + TabBarHeight + DockGap + floatingTabOffset,
+                bottom: insets.bottom + 64 + DockGap + floatingTabOffset,
                 width: dockWidth,
                 marginLeft: (width - dockWidth) / 2,
               },
