@@ -149,6 +149,7 @@ function FloatingGlassTabBar({
   const indicatorPosition = useSharedValue(state.index * tabWidth);
   const isDragging = useSharedValue(false);
   const isPressed = useSharedValue(false);
+  const velocityX = useSharedValue(0);
   const panelOffset = useSharedValue(0);
 
   useEffect(() => {
@@ -169,6 +170,9 @@ function FloatingGlassTabBar({
   };
 
   const pan = Gesture.Pan()
+    .activeOffsetX([-4, 4])
+    .failOffsetY([-25, 25])
+    .shouldCancelWhenOutside(false)
     .onBegin(() => {
       isDragging.value = true;
       isPressed.value = true;
@@ -179,10 +183,12 @@ function FloatingGlassTabBar({
       const maxPos = tabWidth * (numTabs - 1);
       indicatorPosition.value = Math.max(0, Math.min(newPos, maxPos));
       panelOffset.value = (event.translationX / tabBarWidth) * 12;
+      velocityX.value = withSpring(event.velocityX, { damping: 18, stiffness: 200 });
     })
     .onFinalize(() => {
       isDragging.value = false;
       isPressed.value = false;
+      velocityX.value = withSpring(0, { damping: 12, stiffness: 240 });
       panelOffset.value = withSpring(0, { damping: 14, stiffness: 220, mass: 0.7 });
       const nearestIndex = Math.round(indicatorPosition.value / tabWidth);
       runOnJS(navigateToTab)(nearestIndex);
@@ -195,15 +201,20 @@ function FloatingGlassTabBar({
     });
 
   const animatedIndicatorStyle = useAnimatedStyle(() => {
-    const scale = withSpring(isPressed.value ? 1.393 : 1.0, {
+    const baseScale = withSpring(isPressed.value ? 1.393 : 1.0, {
       damping: 12,
       stiffness: 260,
       mass: 0.6,
     });
+    // Kyant0 水滴 Squash & Stretch 物理拉伸
+    const stretch = Math.min(0.22, Math.abs(velocityX.value) / 3000);
+    const scaleX = baseScale * (1 + stretch);
+    const scaleY = baseScale * (1 - stretch * 0.6);
     return {
       transform: [
         { translateX: indicatorPosition.value },
-        { scale },
+        { scaleX },
+        { scaleY },
       ],
     };
   });
@@ -231,24 +242,38 @@ function FloatingGlassTabBar({
             styles.card,
             {
               height: 64,
-              backgroundColor: liquidGlass ? 'transparent' : palette.barSurface,
-              borderRadius: 32,
-              borderWidth: StyleSheet.hairlineWidth,
-              borderColor: palette.border,
             },
             animatedPanelStyle,
           ]}>
-          {liquidGlass ? (
-            <LiquidGlassSurface radius={32} backdropTargetId={backdropTargetId} />
-          ) : (
-            <BlurView
-              intensity={barBlur ? 75 : 0}
-              tint={isDark ? 'dark' : 'light'}
-              style={[StyleSheet.absoluteFill, { borderRadius: 32, overflow: 'hidden' }]}
-            />
-          )}
+          {/* 独立圆角胶囊底栏背景（严格保持 32dp 圆角，绝对杜绝长方形） */}
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                borderRadius: 32,
+                overflow: 'hidden',
+                backgroundColor: liquidGlass ? 'transparent' : palette.barSurface,
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: palette.border,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 8 },
+                shadowOpacity: isDark ? 0.4 : 0.12,
+                shadowRadius: 16,
+                elevation: 10,
+              },
+            ]}>
+            {liquidGlass ? (
+              <LiquidGlassSurface radius={32} backdropTargetId={backdropTargetId} />
+            ) : (
+              <BlurView
+                intensity={barBlur ? 75 : 0}
+                tint={isDark ? 'dark' : 'light'}
+                style={StyleSheet.absoluteFill}
+              />
+            )}
+          </View>
 
-          {/* Kyant0 悬浮液态玻璃药丸指示器（突破底栏，1.393x 放大） */}
+          {/* Kyant0 悬浮水滴指示器（突破底栏，1.393x 放大 + Squash & Stretch） */}
           <Animated.View
             pointerEvents="none"
             style={[
@@ -256,7 +281,18 @@ function FloatingGlassTabBar({
               { width: tabWidth, justifyContent: 'center', alignItems: 'center', zIndex: 0 },
               animatedIndicatorStyle,
             ]}>
-            <View style={{ width: tabWidth - 8, height: 56, borderRadius: 28, overflow: 'hidden' }}>
+            <View
+              style={{
+                width: tabWidth - 8,
+                height: 56,
+                borderRadius: 28,
+                overflow: 'hidden',
+                shadowColor: palette.accent,
+                shadowOffset: { width: 0, height: 6 },
+                shadowOpacity: 0.25,
+                shadowRadius: 12,
+                elevation: 8,
+              }}>
               <GlassPanel kind="liquid" variant="control" radius={28} />
               <View
                 style={[
@@ -264,7 +300,7 @@ function FloatingGlassTabBar({
                   {
                     borderRadius: 28,
                     borderWidth: 1.2,
-                    borderColor: 'rgba(255, 255, 255, 0.25)',
+                    borderColor: 'rgba(255, 255, 255, 0.35)',
                     backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
                   },
                 ]}

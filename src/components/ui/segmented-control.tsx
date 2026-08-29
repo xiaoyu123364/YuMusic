@@ -46,6 +46,7 @@ export function SegmentedControl<T extends string>({
   const position = useSharedValue(0);
   const dragStart = useSharedValue(0);
   const isPressed = useSharedValue(false);
+  const velocityX = useSharedValue(0);
 
   // 外部 value 变化 → 滑块动画归位
   useEffect(() => {
@@ -63,19 +64,21 @@ export function SegmentedControl<T extends string>({
   };
 
   const pan = Gesture.Pan()
-    .activeOffsetX([-8, 8])
-    .failOffsetY([-12, 12])
+    .activeOffsetX([-4, 4])
+    .failOffsetY([-30, 30])
+    .shouldCancelWhenOutside(false)
     .onBegin(() => {
       dragStart.value = position.value;
       isPressed.value = true;
+      runOnJS(triggerHaptic)();
     })
     .onUpdate((event) => {
       const maxOffset = segmentWidth * (options.length - 1);
       position.value = Math.min(Math.max(dragStart.value + event.translationX, 0), maxOffset);
+      velocityX.value = withSpring(event.velocityX, { damping: 18, stiffness: 200 });
     })
     .onEnd((event) => {
       const maxOffset = segmentWidth * (options.length - 1);
-      // 带速度预测：快速轻扫也能翻页（iOS 手感）
       const projected = position.value + event.velocityX * 0.08;
       const index = Math.min(
         options.length - 1,
@@ -86,34 +89,42 @@ export function SegmentedControl<T extends string>({
     })
     .onFinalize(() => {
       isPressed.value = false;
+      velocityX.value = withSpring(0, { damping: 12, stiffness: 240 });
     });
 
-  const thumbStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: position.value },
-      { scale: withSpring(isPressed.value ? 1.30 : 1, SPRING) }
-    ],
-  }));
+  const thumbStyle = useAnimatedStyle(() => {
+    const baseScale = withSpring(isPressed.value ? 1.30 : 1, SPRING);
+    const stretch = Math.min(0.20, Math.abs(velocityX.value) / 3000);
+    const scaleX = baseScale * (1 + stretch);
+    const scaleY = baseScale * (1 - stretch * 0.6);
+    return {
+      transform: [
+        { translateX: position.value },
+        { scaleX },
+        { scaleY },
+      ],
+    };
+  });
 
   return (
-    <XStack
-      padding={3}
-      height={48}
-      borderRadius={24}
-      backgroundColor={
-        kind === 'plain'
-          ? palette.cardAlt
-          : kind === 'frost'
-            ? 'transparent'
-            : isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.30)'
-      }
-      borderWidth={StyleSheet.hairlineWidth}
-      borderColor={kind === 'frost' || kind === 'plain' ? palette.border : palette.barBorder}
-      overflow="visible"
-      onLayout={(event) => setContainerWidth(event.nativeEvent.layout.width)}>
-      {kind === 'frost' ? <GlassPanel kind={kind} radius={24} blurIntensity={44} /> : null}
-      {segmentWidth > 0 ? (
-        <GestureDetector gesture={pan}>
+    <GestureDetector gesture={pan}>
+      <XStack
+        padding={3}
+        height={48}
+        borderRadius={24}
+        backgroundColor={
+          kind === 'plain'
+            ? palette.cardAlt
+            : kind === 'frost'
+              ? 'transparent'
+              : isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.30)'
+        }
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor={kind === 'frost' || kind === 'plain' ? palette.border : palette.barBorder}
+        overflow="visible"
+        onLayout={(event) => setContainerWidth(event.nativeEvent.layout.width)}>
+        {kind === 'frost' ? <GlassPanel kind={kind} radius={24} blurIntensity={44} /> : null}
+        {segmentWidth > 0 ? (
           <Animated.View
             pointerEvents="none"
             style={[
@@ -143,8 +154,7 @@ export function SegmentedControl<T extends string>({
               <GlassPanel kind="liquid" variant="control" radius={21} blurIntensity={40} />
             ) : null}
           </Animated.View>
-        </GestureDetector>
-      ) : null}
+        ) : null}
       <XStack flex={1} zIndex={1} pointerEvents="box-none">
         {options.map((option, index) => {
           const active = option.value === value;
@@ -175,5 +185,6 @@ export function SegmentedControl<T extends string>({
         })}
       </XStack>
     </XStack>
+    </GestureDetector>
   );
 }

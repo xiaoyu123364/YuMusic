@@ -1,7 +1,7 @@
 {
   "name": "moekoe",
   "main": "expo-router/entry",
-  "version": "1.8.8",
+  "version": "1.8.9",
   "description": "MoeKoe mobile app",
   "scripts": {
     "start": "expo start",

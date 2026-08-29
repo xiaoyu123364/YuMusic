@@ -116,6 +116,8 @@ export async function downloadAndInstallApk(
     }
 
     onProgress?.(1.0);
+    // 等待 300ms 让用户清晰看到 100% 满格完成状态
+    await new Promise((resolve) => setTimeout(resolve, 300));
 
     // Android: 自动调起系统安装器
     if (Platform.OS === 'android' && isNativeAvailable()) {

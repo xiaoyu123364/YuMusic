@@ -61,7 +61,8 @@ export function UpdateModal({ visible, release, onClose }: UpdateModalProps) {
         <Pressable style={styles.cardWrapper} onPress={(e) => e.stopPropagation()}>
           <LiquidGlassBackdrop>
             <YStack
-              width={320}
+              width={340}
+              maxWidth="92%"
               borderRadius={28}
               overflow="hidden"
               borderWidth={StyleSheet.hairlineWidth}
@@ -73,8 +74,8 @@ export function UpdateModal({ visible, release, onClose }: UpdateModalProps) {
               <GlassPanel kind={design.liquidReady ? 'liquid' : 'frost'} radius={28} variant="bar" />
 
               {/* 头部：版本图标与标题 */}
-              <XStack alignItems="center" justifyContent="space-between">
-                <XStack alignItems="center" gap={12}>
+              <XStack alignItems="center" justifyContent="space-between" gap={8}>
+                <XStack alignItems="center" gap={12} flex={1} minWidth={0}>
                   <XStack
                     width={44}
                     height={44}
@@ -84,11 +85,11 @@ export function UpdateModal({ visible, release, onClose }: UpdateModalProps) {
                     backgroundColor={palette.accentSoft}>
                     <Ionicons name="sparkles" size={22} color={palette.accent} />
                   </XStack>
-                  <YStack gap={2}>
-                    <Text color={palette.text} fontSize={17} fontWeight="800">
+                  <YStack gap={2} flex={1} minWidth={0}>
+                    <Text color={palette.text} fontSize={17} fontWeight="800" numberOfLines={1}>
                       发现新版本 v{release.versionName}
                     </Text>
-                    <Text color={palette.accent} fontSize={12} fontWeight="600">
+                    <Text color={palette.accent} fontSize={12} fontWeight="600" numberOfLines={1}>
                       {release.name || '全新功能与体验升级'}
                     </Text>
                   </YStack>
