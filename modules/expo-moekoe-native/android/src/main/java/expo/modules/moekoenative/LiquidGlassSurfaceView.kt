@@ -268,113 +268,135 @@ class LiquidGlassSurfaceView(context: Context) : View(context) {
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        val target = backdropTarget ?: rootView
-        if (width == 0 || height == 0 || target == null || target.width == 0 || target.height == 0) return
+        try {
+            val target = backdropTarget ?: rootView
+            if (width <= 0 || height <= 0 || target == null || target.width <= 0 || target.height <= 0) {
+                drawFallback(canvas)
+                return
+            }
 
-        getLocationInWindow(location)
-        target.getLocationInWindow(backdropLocation)
+            getLocationInWindow(location)
+            target.getLocationInWindow(backdropLocation)
 
-        val dx = location[0] - backdropLocation[0]
-        val dy = location[1] - backdropLocation[1]
+            val dx = location[0] - backdropLocation[0]
+            val dy = location[1] - backdropLocation[1]
 
-        prepareBitmap(width, height)
-        val bmp = bgBitmap ?: return
-        val cv = bgCanvas ?: return
-        
-        cv.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
-        cv.save()
-        cv.scale(downscaleFactor, downscaleFactor)
-        cv.translate(-dx.toFloat(), -dy.toFloat())
-        
-        val visibilityState = visibility
-        visibility = INVISIBLE
-        target.draw(cv)
-        visibility = visibilityState
-        cv.restore()
+            prepareBitmap(width, height)
+            val bmp = bgBitmap ?: run { drawFallback(canvas); return }
+            val cv = bgCanvas ?: run { drawFallback(canvas); return }
+            
+            cv.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
+            cv.save()
+            cv.scale(downscaleFactor, downscaleFactor)
+            cv.translate(-dx.toFloat(), -dy.toFloat())
+            
+            try {
+                target.draw(cv)
+            } catch (_: Throwable) {
+                // 忽略子视图采样异常
+            }
+            cv.restore()
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            var effect: RenderEffect? = null
-            if (blurAmount > 0) {
-                effect = RenderEffect.createBlurEffect(blurAmount, blurAmount, Shader.TileMode.CLAMP)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                try {
+                    val shaderString = if (chromaticAberration > 0f) RoundedRectRefractionWithDispersionShaderString else RoundedRectRefractionShaderString
+                    val runtimeShader = RuntimeShader(shaderString).apply {
+                        setFloatUniform("size", width.toFloat(), height.toFloat())
+                        setFloatUniform("offset", 0f, 0f)
+                        setFloatUniform("cornerRadii", cornerRadius, cornerRadius, cornerRadius, cornerRadius)
+                        setFloatUniform("refractionHeight", refractionHeight)
+                        setFloatUniform("refractionAmount", refractionAmount)
+                        setFloatUniform("depthEffect", if (depthEffect) 1f else 0f)
+                        if (chromaticAberration > 0f) {
+                            setFloatUniform("chromaticAberration", chromaticAberration)
+                        }
+                    }
+
+                    val glassEffect = RenderEffect.createRuntimeShaderEffect(runtimeShader, "content")
+                    val chainEffect = if (blurAmount > 0f) {
+                        val blurEffect = RenderEffect.createBlurEffect(blurAmount, blurAmount, Shader.TileMode.CLAMP)
+                        RenderEffect.createChainEffect(glassEffect, blurEffect)
+                    } else {
+                        glassEffect
+                    }
+                    
+                    paint.shader = BitmapShader(bmp, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply {
+                        val matrix = Matrix()
+                        matrix.postScale(1f / downscaleFactor, 1f / downscaleFactor)
+                        setLocalMatrix(matrix)
+                    }
+                    
+                    val rn = (renderNode as? RenderNode) ?: RenderNode("GlassSurface").also { renderNode = it }
+                    rn.setPosition(0, 0, width, height)
+                    val rc = rn.beginRecording()
+                    rc.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
+                    rn.endRecording()
+                    rn.setRenderEffect(chainEffect)
+                    canvas.drawRenderNode(rn)
+                } catch (_: Throwable) {
+                    drawFallback(canvas)
+                }
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                try {
+                    val blurEffect = RenderEffect.createBlurEffect(max(1f, blurAmount), max(1f, blurAmount), Shader.TileMode.CLAMP)
+                    paint.shader = BitmapShader(bmp, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply {
+                        val matrix = Matrix()
+                        matrix.postScale(1f / downscaleFactor, 1f / downscaleFactor)
+                        setLocalMatrix(matrix)
+                    }
+                    val rn = (renderNode as? RenderNode) ?: RenderNode("GlassSurface").also { renderNode = it }
+                    rn.setPosition(0, 0, width, height)
+                    val rc = rn.beginRecording()
+                    rc.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
+                    rn.endRecording()
+                    rn.setRenderEffect(blurEffect)
+                    canvas.drawRenderNode(rn)
+                } catch (_: Throwable) {
+                    drawFallback(canvas)
+                }
+            } else {
+                paint.shader = BitmapShader(bmp, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply {
+                    val matrix = Matrix()
+                    matrix.postScale(1f / downscaleFactor, 1f / downscaleFactor)
+                    setLocalMatrix(matrix)
+                }
+                canvas.drawPath(path, paint)
+            }
+
+            if (surfaceTintAlpha > 0f) {
+                tintPaint.color = surfaceTintColor
+                tintPaint.alpha = (surfaceTintAlpha.coerceIn(0f, 1f) * 255).toInt()
+                canvas.drawPath(path, tintPaint)
             }
             
-            val shaderString = if (chromaticAberration > 0f) RoundedRectRefractionWithDispersionShaderString else RoundedRectRefractionShaderString
-            val runtimeShader = RuntimeShader(shaderString).apply {
-                setFloatUniform("size", width.toFloat(), height.toFloat())
-                setFloatUniform("offset", 0f, 0f)
-                setFloatUniform("cornerRadii", cornerRadius, cornerRadius, cornerRadius, cornerRadius)
-                setFloatUniform("refractionHeight", refractionHeight)
-                setFloatUniform("refractionAmount", refractionAmount)
-                setFloatUniform("depthEffect", if (depthEffect) 1f else 0f)
-                if (chromaticAberration > 0f) {
-                    setFloatUniform("chromaticAberration", chromaticAberration)
+            canvas.drawPath(path, borderPaint)
+
+            if (enableHighlight && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                try {
+                    val highlightShader = RuntimeShader(DefaultHighlightShaderString).apply {
+                        setFloatUniform("size", width.toFloat(), height.toFloat())
+                        setFloatUniform("cornerRadii", cornerRadius, cornerRadius, cornerRadius, cornerRadius)
+                        setFloatUniform("color", 1f, 1f, 1f, 0.45f)
+                        setFloatUniform("angle", highlightAngle)
+                        setFloatUniform("falloff", highlightFalloff)
+                    }
+                    highlightPaint.shader = highlightShader
+                    canvas.drawPath(path, highlightPaint)
+                } catch (_: Throwable) {
+                    // 忽略高光渲染异常
                 }
             }
-
-            val glassEffect = if (effect != null) {
-                RenderEffect.createRuntimeShaderEffect(runtimeShader, "content")
-            } else {
-                RenderEffect.createRuntimeShaderEffect(runtimeShader, "content")
-            }
-            
-            val chainEffect = if (effect != null) RenderEffect.createChainEffect(glassEffect, effect) else glassEffect
-            
-            paint.shader = BitmapShader(bmp, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply {
-                val matrix = Matrix()
-                matrix.postScale(1f / downscaleFactor, 1f / downscaleFactor)
-                setLocalMatrix(matrix)
-            }
-            
-            val rn = renderNode as RenderNode
-            rn.setPosition(0, 0, width, height)
-            val rc = rn.beginRecording()
-            rc.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
-            rn.endRecording()
-            rn.setRenderEffect(chainEffect)
-            canvas.drawRenderNode(rn)
-
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val effect = RenderEffect.createBlurEffect(blurAmount, blurAmount, Shader.TileMode.CLAMP)
-            paint.shader = BitmapShader(bmp, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply {
-                val matrix = Matrix()
-                matrix.postScale(1f / downscaleFactor, 1f / downscaleFactor)
-                setLocalMatrix(matrix)
-            }
-            val rn = renderNode as RenderNode
-            rn.setPosition(0, 0, width, height)
-            val rc = rn.beginRecording()
-            rc.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
-            rn.endRecording()
-            rn.setRenderEffect(effect)
-            canvas.drawRenderNode(rn)
-        } else {
-            // box blur fallback
-            paint.shader = BitmapShader(bmp, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply {
-                val matrix = Matrix()
-                matrix.postScale(1f / downscaleFactor, 1f / downscaleFactor)
-                setLocalMatrix(matrix)
-            }
-            canvas.drawPath(path, paint)
+        } catch (_: Throwable) {
+            drawFallback(canvas)
         }
+    }
 
-        if (surfaceTintAlpha > 0f) {
-            tintPaint.color = surfaceTintColor
-            tintPaint.alpha = (surfaceTintAlpha * 255).toInt()
-            canvas.drawPath(path, tintPaint)
+    private fun drawFallback(canvas: Canvas) {
+        val fallbackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.FILL
+            color = if (surfaceTintAlpha > 0f) surfaceTintColor else Color.parseColor("#1AFFFFFF")
         }
-        
+        canvas.drawPath(path, fallbackPaint)
         canvas.drawPath(path, borderPaint)
-
-        if (enableHighlight && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val highlightShader = RuntimeShader(DefaultHighlightShaderString).apply {
-                setFloatUniform("size", width.toFloat(), height.toFloat())
-                setFloatUniform("cornerRadii", cornerRadius, cornerRadius, cornerRadius, cornerRadius)
-                setColorUniform("color", Color.WHITE)
-                setFloatUniform("angle", highlightAngle)
-                setFloatUniform("falloff", highlightFalloff)
-            }
-            highlightPaint.shader = highlightShader
-            canvas.drawPath(path, highlightPaint)
-        }
     }
 }

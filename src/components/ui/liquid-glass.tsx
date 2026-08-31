@@ -9,26 +9,51 @@ export function useBackdropTargetId(): number | null {
   return useContext(BackdropContext);
 }
 
-export function LiquidGlassBackdrop({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
+/**
+ * 页面背景采样容器：使用标准 View 包裹，挂载 ref 获取原生节点句柄，
+ * 100% 稳定，绝不引发 ViewManager 缺失闪退。
+ */
+export function LiquidGlassBackdrop({
+  children,
+  style,
+}: {
+  children: React.ReactNode;
+  style?: StyleProp<ViewStyle>;
+}) {
   const [backdropTargetId, setBackdropTargetId] = useState<number | null>(null);
   const ref = useRef<View>(null);
 
   useEffect(() => {
     if (ref.current) {
-      setBackdropTargetId(findNodeHandle(ref.current));
+      const handle = findNodeHandle(ref.current);
+      if (handle) {
+        setBackdropTargetId(handle);
+      }
     }
   }, []);
 
-  const Component = Platform.OS !== 'ios' ? requireNativeViewManager('LiquidGlassBackdropAnchor') : View;
-
   return (
     <BackdropContext.Provider value={backdropTargetId}>
-      {/* @ts-ignore */}
-      <Component ref={ref} style={[StyleSheet.absoluteFill, style]}>
+      <View ref={ref} style={[StyleSheet.absoluteFill, style]}>
         {children}
-      </Component>
+      </View>
     </BackdropContext.Provider>
   );
+}
+
+let NativeGlassViewComponent: any = null;
+let nativeViewLoadFailed = false;
+
+function getNativeGlassComponent() {
+  if (NativeGlassViewComponent) return NativeGlassViewComponent;
+  if (nativeViewLoadFailed || Platform.OS === 'ios') return null;
+  try {
+    NativeGlassViewComponent = requireNativeViewManager('LiquidGlassSurfaceView');
+    return NativeGlassViewComponent;
+  } catch (_e) {
+    nativeViewLoadFailed = true;
+    return null;
+  }
 }
 
 export function LiquidGlassSurface({
@@ -56,24 +81,30 @@ export function LiquidGlassSurface({
   backdropTargetId?: number | null;
   style?: StyleProp<ViewStyle>;
 }) {
-  if (Platform.OS === 'ios') {
-    return <BlurView intensity={blurRadius * 10} style={[StyleSheet.absoluteFill, style]} />;
+  const NativeComponent = getNativeGlassComponent();
+
+  if (!NativeComponent) {
+    // 优雅降级为 BlurView，绝不闪退
+    return (
+      <BlurView
+        intensity={Math.max(15, blurRadius * 10)}
+        tint="default"
+        style={[StyleSheet.absoluteFill, style]}
+      />
+    );
   }
 
-  const Component = requireNativeViewManager('LiquidGlassSurfaceView');
-
   return (
-    // @ts-ignore
-    <Component
+    <NativeComponent
       style={[StyleSheet.absoluteFill, style]}
-      radius={radius}
+      cornerRadius={radius}
       refractionHeight={refractionHeight}
       refractionAmount={refractionAmount}
-      blurRadius={blurRadius}
+      blurAmount={blurRadius}
       chromaticAberration={chromaticAberration}
       depthEffect={depthEffect}
-      tintColor={tintColor}
-      tintAlpha={tintAlpha}
+      surfaceTintColor={tintColor ? undefined : undefined}
+      surfaceTintAlpha={tintAlpha}
       enableHighlight={enableHighlight}
       backdropTargetId={backdropTargetId}
     />
