@@ -48,11 +48,17 @@ function getNativeGlassComponent() {
   if (NativeGlassViewComponent) return NativeGlassViewComponent;
   if (nativeViewLoadFailed || Platform.OS === 'ios') return null;
   try {
-    NativeGlassViewComponent = requireNativeViewManager('LiquidGlassSurfaceView');
+    // Expo Modules 生成的 ViewManager 名称为 ModuleName_ViewName
+    NativeGlassViewComponent = requireNativeViewManager('ExpoMoekoeNative_LiquidGlassSurfaceView');
     return NativeGlassViewComponent;
-  } catch (_e) {
-    nativeViewLoadFailed = true;
-    return null;
+  } catch (_e1) {
+    try {
+      NativeGlassViewComponent = requireNativeViewManager('LiquidGlassSurfaceView');
+      return NativeGlassViewComponent;
+    } catch (_e2) {
+      nativeViewLoadFailed = true;
+      return null;
+    }
   }
 }
 
