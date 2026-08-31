@@ -58,7 +58,7 @@ function TabItem({
   indicatorPosition: SharedValue<number>;
   isPressed: SharedValue<boolean>;
 }) {
-  const palette = usePalette();
+  const isDark = useIsDark();
   const meta = TAB_META[route.name];
   const scale = useSharedValue(1);
 
@@ -73,12 +73,12 @@ function TabItem({
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
-    opacity: Math.max(0.2, 1 - progress.value * 0.75),
+    opacity: Math.max(0, 1 - progress.value * 2), // 被水滴遮盖时快速淡出
   }));
 
   const handlePressIn = () => {
     isPressed.value = true;
-    scale.value = withSpring(0.90, { damping: 15, stiffness: 300 });
+    scale.value = withSpring(0.9, { damping: 15, stiffness: 300 });
   };
 
   const handlePressOut = () => {
@@ -98,6 +98,8 @@ function TabItem({
     }
   };
 
+  const unselectedColor = isDark ? 'rgba(255,255,255,0.75)' : '#8E8E93';
+
   return (
     <Pressable
       key={route.key}
@@ -105,13 +107,13 @@ function TabItem({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       style={{ width: tabWidth, height: 56, alignItems: 'center', justifyContent: 'center' }}>
-      <Animated.View style={[styles.item, animatedStyle]}>
+      <Animated.View style={[{ alignItems: 'center', justifyContent: 'center', gap: 2 }, animatedStyle]}>
         <Ionicons
           name={`${meta.glyph}-outline` as const}
           size={24}
-          color={palette.textSecondary}
+          color={unselectedColor}
         />
-        <RNText style={[styles.label, { color: palette.textSecondary }]}>
+        <RNText style={{ color: unselectedColor, fontSize: 11.5, fontWeight: '500' }}>
           {meta.label}
         </RNText>
       </Animated.View>
@@ -119,23 +121,20 @@ function TabItem({
   );
 }
 
-/** Kyant0 原版 1:1 物理液态玻璃 Dock 栏（LiquidBottomTabs） */
 function FloatingGlassTabBar({
   state,
   navigation,
   backdropTargetId,
 }: TabBarProps & { backdropTargetId: number | null }) {
-  const palette = usePalette();
   const isDark = useIsDark();
   const insets = useSafeAreaInsets();
   const barBlur = useBarBlur();
   const liquidGlass = useLiquidGlass();
   const { width } = useWindowDimensions();
 
-  // Kyant0 官方规范：两边各 padding 36dp，最大宽度 320dp
   const tabBarWidth = Math.min(width - 72, 320);
   const numTabs = state.routes.length;
-  const tabWidth = (tabBarWidth - 8) / numTabs; // 除去左右 4dp padding
+  const tabWidth = (tabBarWidth - 8) / numTabs;
 
   const indicatorPosition = useSharedValue(state.index * tabWidth);
   const isDragging = useSharedValue(false);
@@ -192,13 +191,11 @@ function FloatingGlassTabBar({
     });
 
   const animatedIndicatorStyle = useAnimatedStyle(() => {
-    // Kyant0 原版按压放大 78dp / 56dp = 1.393x，突破 64dp 底栏外框
     const baseScale = withSpring(isPressed.value ? 1.393 : 1.0, {
       damping: 12,
       stiffness: 260,
       mass: 0.6,
     });
-    // Kyant0 水滴 Squash & Stretch 物理拉伸
     const stretch = Math.min(0.24, Math.abs(velocityX.value) / 2800);
     const scaleX = baseScale * (1 + stretch);
     const scaleY = baseScale * (1 - stretch * 0.6);
@@ -217,46 +214,50 @@ function FloatingGlassTabBar({
     };
   });
 
+  const currentTabName = state.routes[state.index]?.name;
+  const currentTabMeta = TAB_META[currentTabName] || TAB_META['index'];
+
   return (
     <View
-      style={[
-        styles.tabBarWrap,
-        {
-          bottom: insets.bottom + (Platform.OS === 'ios' ? 0 : 16),
-          width: tabBarWidth,
-          marginLeft: (width - tabBarWidth) / 2,
-        },
-      ]}
+      style={{
+        position: 'absolute',
+        bottom: insets.bottom + (Platform.OS === 'ios' ? 0 : 16),
+        width: tabBarWidth,
+        marginLeft: (width - tabBarWidth) / 2,
+        zIndex: 50,
+      }}
       pointerEvents="box-none">
       <GestureDetector gesture={pan}>
         <Animated.View
           style={[
-            styles.card,
             {
               height: 64,
               padding: 4,
+              borderRadius: 32,
+              flexDirection: 'row',
+              alignItems: 'center',
             },
             animatedPanelStyle,
           ]}>
-          {/* Layer 1: Kyant0 底栏独立背景圆角胶囊 (64dp, radius 32dp) */}
+          {/* Layer 1: 背景层 */}
           <View
             style={[
               StyleSheet.absoluteFill,
               {
                 borderRadius: 32,
                 overflow: 'hidden',
-                backgroundColor: isDark ? 'rgba(18, 18, 18, 0.45)' : 'rgba(255, 255, 255, 0.45)',
+                backgroundColor: isDark ? 'rgba(18, 18, 18, 0.40)' : 'rgba(250, 250, 250, 0.40)',
                 borderWidth: StyleSheet.hairlineWidth,
                 borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.60)',
                 shadowColor: '#000',
                 shadowOffset: { width: 0, height: 8 },
-                shadowOpacity: isDark ? 0.4 : 0.12,
+                shadowOpacity: 0.12,
                 shadowRadius: 16,
                 elevation: 10,
               },
             ]}>
             {liquidGlass ? (
-              <LiquidGlassSurface radius={32} backdropTargetId={backdropTargetId} />
+              <LiquidGlassSurface radius={32} refractionHeight={24} blurRadius={8} backdropTargetId={backdropTargetId} />
             ) : (
               <BlurView
                 intensity={barBlur ? 75 : 0}
@@ -266,8 +267,8 @@ function FloatingGlassTabBar({
             )}
           </View>
 
-          {/* Layer 2: Kyant0 底层普通未激活 TabItem (高度 56dp) */}
-          <View style={styles.row}>
+          {/* Layer 2: Tab 图标层 */}
+          <View style={{ flexDirection: 'row', width: '100%' }}>
             {state.routes.map((route, index) => (
               <TabItem
                 key={route.key}
@@ -282,7 +283,7 @@ function FloatingGlassTabBar({
             ))}
           </View>
 
-          {/* Layer 3: Kyant0 1:1 悬浮微晶水滴透镜滑块（突破放大 1.393x + 内部高亮科技蓝） */}
+          {/* Layer 3: 悬浮水滴透镜 */}
           <Animated.View
             pointerEvents="none"
             style={[
@@ -298,7 +299,6 @@ function FloatingGlassTabBar({
               },
               animatedIndicatorStyle,
             ]}>
-            {/* 水滴微晶高透胶囊底体 */}
             <View
               style={{
                 width: tabWidth,
@@ -321,7 +321,6 @@ function FloatingGlassTabBar({
               />
             </View>
 
-            {/* 水滴透镜内部：实时放大激活的科技蓝高光图标与文字 */}
             <View
               style={[
                 StyleSheet.absoluteFill,
@@ -332,8 +331,8 @@ function FloatingGlassTabBar({
                 },
               ]}>
               <Ionicons
-                name={TAB_META[state.routes[state.index]?.name]?.glyph || 'home'}
-                size={27}
+                name={`${currentTabMeta.glyph}-outline` as const}
+                size={24}
                 color="#0088FF"
               />
               <RNText
@@ -343,7 +342,7 @@ function FloatingGlassTabBar({
                   color: '#0088FF',
                   letterSpacing: 0.2,
                 }}>
-                {TAB_META[state.routes[state.index]?.name]?.label || '首页'}
+                {currentTabMeta.label}
               </RNText>
             </View>
           </Animated.View>

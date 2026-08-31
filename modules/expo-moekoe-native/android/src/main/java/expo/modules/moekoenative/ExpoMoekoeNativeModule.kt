@@ -74,10 +74,8 @@ class ExpoMoekoeNativeModule : Module() {
       LyricOverlayManager.hide()
     }
 
-    // ---------- 原生液态玻璃 View（Liquid-Glass-Android） ----------
+    // ---------- 原生液态玻璃 View（1:1 复制 Kyant0 引擎） ----------
 
-    // 页面内容锚点：挂在 LiquidGlassBackdrop 内容容器内，attach 时自注册进
-    // GlassBackdropRegistry，供玻璃视图绕开新架构 tag 查找直接拿到采样源。
     View(BackdropAnchorView::class) {
       Name("LiquidGlassBackdropAnchor")
     }
@@ -86,22 +84,15 @@ class ExpoMoekoeNativeModule : Module() {
       Name("LiquidGlassSurfaceView")
       Prop("cornerRadius") { view: LiquidGlassSurfaceView, value: Float -> view.setCornerRadius(value) }
       Prop("refractionHeight") { view: LiquidGlassSurfaceView, value: Float -> view.setRefractionHeight(value) }
-      Prop("bevelWidth") { view: LiquidGlassSurfaceView, value: Float -> view.setBevelWidth(value) }
-      Prop("dispersionStrength") { view: LiquidGlassSurfaceView, value: Float -> view.setDispersionStrength(value) }
+      Prop("refractionAmount") { view: LiquidGlassSurfaceView, value: Float -> view.setRefractionAmount(value) }
       Prop("blurAmount") { view: LiquidGlassSurfaceView, value: Float -> view.setBlurAmount(value) }
-      Prop("saturation") { view: LiquidGlassSurfaceView, value: Float -> view.setSaturation(value) }
-      Prop("aberrationIntensity") { view: LiquidGlassSurfaceView, value: Float -> view.setAberrationIntensity(value) }
-      Prop("displacementScale") { view: LiquidGlassSurfaceView, value: Float -> view.setDisplacementScale(value) }
-      Prop("elasticity") { view: LiquidGlassSurfaceView, value: Float -> view.setElasticity(value) }
-      Prop("enableSensorHighlight") { view: LiquidGlassSurfaceView, value: Boolean -> view.setEnableSensorHighlight(value) }
-      Prop("enableAdaptiveTint") { view: LiquidGlassSurfaceView, value: Boolean -> view.setEnableAdaptiveTint(value) }
-      Prop("enablePressEffect") { view: LiquidGlassSurfaceView, value: Boolean -> view.setEnablePressEffect(value) }
-      Prop("enableChromaticAberration") { view: LiquidGlassSurfaceView, value: Boolean -> view.setEnableChromaticAberration(value) }
-      Prop("enableEdgeHighlight") { view: LiquidGlassSurfaceView, value: Boolean -> view.setEnableEdgeHighlight(value) }
-      Prop("fallbackColor") { view: LiquidGlassSurfaceView, value: Int -> view.setFallbackColor(value) }
+      Prop("chromaticAberration") { view: LiquidGlassSurfaceView, value: Float -> view.setChromaticAberration(value) }
+      Prop("depthEffect") { view: LiquidGlassSurfaceView, value: Boolean -> view.setDepthEffect(value) }
       Prop("surfaceTintColor") { view: LiquidGlassSurfaceView, value: Int -> view.setSurfaceTintColor(value) }
       Prop("surfaceTintAlpha") { view: LiquidGlassSurfaceView, value: Float -> view.setSurfaceTintAlpha(value) }
-      // 采样源：传页面内容容器的 node handle，绑定为背景采样源，避免自采样递归。
+      Prop("enableHighlight") { view: LiquidGlassSurfaceView, value: Boolean -> view.setEnableHighlight(value) }
+      Prop("highlightAngle") { view: LiquidGlassSurfaceView, value: Float -> view.setHighlightAngle(value) }
+      Prop("highlightFalloff") { view: LiquidGlassSurfaceView, value: Float -> view.setHighlightFalloff(value) }
       Prop("backdropTargetId") { view: LiquidGlassSurfaceView, id: Int ->
         val target = appContext.findView<android.view.View>(id)
         if (target != null) {

@@ -1,62 +1,60 @@
+import React from 'react';
+import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import { LiquidGlassSurface, useBackdropTargetId } from './liquid-glass';
 import { BlurView } from 'expo-blur';
-import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
-import { View } from 'tamagui';
+import { useLiquidGlass } from '@/features/settings/store';
+import { useIsDark } from '@/hooks/use-palette';
 
-import {
-  LiquidGlassSurface,
-  useBackdropTargetId,
-} from '@/components/ui/liquid-glass';
-import type { GlassKind } from '@/features/settings/store';
-import { useIsDark, usePalette } from '@/hooks/use-palette';
-
-/**
- * 设计风格统一材质面板（绝对定位背景层，pointerEvents=none）：
- * - liquid：原生液态玻璃（Android 自研折射管线 / iOS GlassView），
- *   无 backdrop 或不可用时自动降级为 frost；
- * - frost：BlurView 毛玻璃（Material Expressive 风）；
- * - plain：半透明素面卡片。
- *
- * variant 区分大表面（bar：底栏/播放条）与小控件（control：滑块/选项卡）：
- * 小控件用更轻的折射/倒角参数，避免原生管线在小面积上糊出灰光环。
- */
-export function GlassPanel({
-  kind,
-  radius = 20,
-  blurIntensity = 46,
-  variant = 'bar',
-  style,
-}: {
-  kind: GlassKind;
+type GlassPanelProps = {
+  kind?: 'liquid' | 'frost' | 'plain';
+  variant?: 'bar' | 'control' | 'card';
   radius?: number;
   blurIntensity?: number;
-  variant?: 'bar' | 'control';
   style?: StyleProp<ViewStyle>;
-}) {
-  const palette = usePalette();
+};
+
+export function GlassPanel({ kind = 'liquid', variant = 'card', radius = 16, blurIntensity, style }: GlassPanelProps) {
+  const liquidGlass = useLiquidGlass();
   const isDark = useIsDark();
   const backdropTargetId = useBackdropTargetId();
 
-  // liquid 恒走原生视图：原生侧在拿不到显式 backdrop 时会自动绑定
-  // Activity decorView 兜底，不再依赖 backdropTargetId 解析成功
-  //（旧 gating 是「玻璃完全不渲染」的元凶之一，解析失败即静默降级 BlurView）。
-  if (kind === 'liquid') {
+  let refractionHeight = 16;
+  let refractionAmount = -10;
+  let blurRadius = 6;
+  let chromaticAberration = 0;
+
+  if (variant === 'bar') {
+    refractionHeight = 24;
+    refractionAmount = -14;
+    blurRadius = 8;
+    chromaticAberration = 0;
+  } else if (variant === 'control') {
+    refractionHeight = 10;
+    refractionAmount = -14;
+    blurRadius = 4;
+    chromaticAberration = 1;
+  }
+
+  const actualKind = liquidGlass && kind === 'liquid' ? 'liquid' : (kind === 'plain' ? 'plain' : 'frost');
+
+  if (actualKind === 'liquid') {
     return (
       <LiquidGlassSurface
         radius={radius}
+        refractionHeight={refractionHeight}
+        refractionAmount={refractionAmount}
+        blurRadius={blurRadius}
+        chromaticAberration={chromaticAberration}
         backdropTargetId={backdropTargetId}
-        refractionHeight={variant === 'control' ? 32 : 64}
-        bevelWidth={variant === 'control' ? 8 : 16}
-        dispersionStrength={0.35}
-        aberrationIntensity={6.0}
         style={style}
       />
     );
   }
 
-  if (kind === 'frost') {
+  if (actualKind === 'frost') {
     return (
       <BlurView
-        intensity={blurIntensity}
+        intensity={blurIntensity ?? blurRadius * 10}
         tint={isDark ? 'dark' : 'light'}
         style={[StyleSheet.absoluteFill, style]}
       />
@@ -65,16 +63,11 @@ export function GlassPanel({
 
   return (
     <View
-      position="absolute"
-      left={0}
-      right={0}
-      top={0}
-      bottom={0}
-      borderRadius={radius}
-      backgroundColor={palette.barSurface}
-      borderWidth={StyleSheet.hairlineWidth}
-      borderColor={palette.border}
-      style={style}
+      style={[
+        StyleSheet.absoluteFill,
+        { backgroundColor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)' },
+        style,
+      ]}
     />
   );
 }
